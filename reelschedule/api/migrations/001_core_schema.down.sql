@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS screenings;
+DROP TYPE IF EXISTS screening_status;
+DROP TABLE IF EXISTS film_references;
+DROP TABLE IF EXISTS rooms;
+DROP TABLE IF EXISTS venues;
