@@ -1,0 +1,17 @@
+{
+  "name": "reelschedule",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ReelSchedule — fictional film festival scheduling console (CSC 436 final project)",
+  "workspaces": ["api", "web"],
+  "scripts": {
+    "test": "npm run test -w api && npm run test -w web",
+    "typecheck": "npm run typecheck -w api && npm run typecheck -w web",
+    "migrate": "npm run migrate -w api",
+    "seed": "npm run seed -w api",
+    "dev:api": "npm run dev -w api",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w api && npm run build -w web"
+  },
+  "engines": { "node": ">=22" }
+}

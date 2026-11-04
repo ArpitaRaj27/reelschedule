@@ -1,0 +1,96 @@
+# Render Blueprint: the whole production setup as code.
+# Create it once in the Render Dashboard: New > Blueprint > pick this repo.
+# Later pushes to main redeploy automatically, but only after the CI checks pass.
+
+databases:
+  - name: reelschedule-db
+    plan: free                 # free Postgres expires 30 days after creation (fine for the term)
+    region: ohio               # closest Render region to Chicago; must match the API
+    postgresMajorVersion: "16"
+    databaseName: reelschedule
+    user: reelschedule
+    ipAllowList: []            # no public access: only Render services on the private network
+
+services:
+  # ---------- API (Node / Express) ----------
+  - type: web
+    name: reelschedule-api-arpita
+    runtime: node
+    plan: free
+    region: ohio
+    branch: main
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci --include=dev && npm run build -w api
+    startCommand: npm run start -w api
+    healthCheckPath: /healthz
+    buildFilter:
+      paths: ["api/**", "package.json", "package-lock.json", "render.yaml"]
+      ignoredPaths: ["api/test/**"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reelschedule-db
+          property: connectionString
+      # Exact origin of the web app below. Update it if Render gives the site a different URL.
+      - key: CORS_ORIGINS
+        value: https://reelschedule-arpita.onrender.com
+      - key: FESTIVAL_TIMEZONE
+        value: America/Chicago
+      - key: DEFAULT_BUFFER_MINUTES
+        value: "15"
+      # No shell on free instances, so the API migrates and loads the synthetic festival on startup.
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: SEED_DEMO_DATA
+        value: "true"
+      # Secret: paste your TMDB "API Read Access Token" in the Dashboard (never commit it).
+      - key: TMDB_READ_TOKEN
+        sync: false
+      # Microsoft Entra ID values are added in the sign-in step. Until then the API is read-only.
+
+  # ---------- Web app (static files on Render's CDN) ----------
+  - type: web
+    name: reelschedule-arpita
+    runtime: static
+    branch: main
+    autoDeployTrigger: checksPass
+    buildCommand: npm ci --include=dev && npm run build -w web
+    staticPublishPath: ./web/dist
+    buildFilter:
+      paths: ["web/**", "package.json", "package-lock.json", "render.yaml"]
+      ignoredPaths: ["web/test/**"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Where the browser finds the API. Update it if Render gives the API a different URL.
+      - key: VITE_API_BASE_URL
+        value: https://reelschedule-api-arpita.onrender.com
+    routes:
+      # Single-page app: any path that isn't a real file serves index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      # Hashed build files never change, so browsers and the CDN can keep them for a year.
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://reelschedule-api-arpita.onrender.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()
