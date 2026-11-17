@@ -183,7 +183,9 @@ After each live event, clients add `?v=<latest change id>` to public reads. That
 - **Logs:** structured JSON with redaction of tokens, keys and authorization headers.
 - **Database:** parameterized SQL only. `LIKE` input is escaped.
 
-## Deploying (Render)
+## Deploying (Render behind Cloudflare)
+
+Production: **https://reel.miniexhibit.app**. The DNS for `miniexhibit.app` is on Cloudflare (Free plan); `reel` is a proxied CNAME to the Render service, with SSL/TLS **Full (strict)** and a Cache Rule that makes the HTML shell and public API cache-eligible while the origin's headers set the TTLs. HW5 evidence and scripts: [`hw5-rajapkar/`](hw5-rajapkar/README.md).
 
 Everything is described in [`render.yaml`](render.yaml), a Render Blueprint:
 

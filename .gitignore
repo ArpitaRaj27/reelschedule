@@ -7,3 +7,7 @@ coverage/
 !.env.example
 # Local signing keys for development tokens — never commit
 .dev-auth/
+# Raw captures (HAR files, transcripts with real tokens) never leave this machine
+raw-evidence/
+*.raw.har
+*.raw.txt

@@ -1,0 +1,2 @@
+# Keep the course k6 profile byte-identical on every platform (its sha256 is recorded as evidence)
+hw5-rajapkar/scripts/campuspulse-load-profile.js -text
