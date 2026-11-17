@@ -4,6 +4,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import helmet from "helmet";
 import { authenticate, getPrincipal, requireAccess, requirePrincipal, ROLES, SCOPES, type TokenVerifier } from "./auth.js";
+import { TtlCache } from "./appCache.js";
 import type { Config } from "./config.js";
 import type { Db } from "./db.js";
 import { errorHandler, HttpError } from "./errors.js";
@@ -24,7 +25,10 @@ import {
   roomSchedule,
   type ActorContext,
 } from "./services/screenings.js";
+import { festivalStatus } from "./services/status.js";
+import { recordVital, summarizeVitals, VitalInput } from "./services/vitals.js";
 import type { TmdbClient } from "./tmdb.js";
+import { mountWebApp } from "./webApp.js";
 import { z } from "zod";
 
 export interface AppDeps {
@@ -34,13 +38,19 @@ export interface AppDeps {
   tmdb: TmdbClient;
   hub: EventHub;
   /** Requests per minute; tests raise these to avoid flakiness. */
-  limits?: { writesPerMinute?: number; providerPerMinute?: number };
+  limits?: { writesPerMinute?: number; providerPerMinute?: number; vitalsPerMinute?: number };
+  /** Built React app to serve from this origin (null/undefined: API only, e.g. dev with Vite). */
+  webDist?: string | null;
+  /** App-layer cache; injectable so tests can observe it. */
+  cache?: TtlCache;
 }
+
+export const STATUS_CACHE_KEY = "status:v1";
+const STATUS_TTL_MS = 10_000;
 
 const Uuid = z.uuid();
 const DateQuery = z.object({ date: z.iso.date().optional() });
 
-/** Public, identical-for-everyone GET responses may be shared by a CDN for a few seconds. */
 /**
  * Public read caching.
  * - Browsers: max-age=0, so they revalidate every time (cheap 304 via ETag) and never show an
@@ -50,11 +60,16 @@ const DateQuery = z.object({ date: z.iso.date().optional() });
  * - Live clients add ?v=<latest change id> after each change event: a new cache key, so the first
  *   viewer's request fills the edge for every other viewer and nobody gets a pre-change copy.
  */
-const PUBLIC_CACHE = "public, max-age=0, s-maxage=10";
-const CDN_CACHE = "max-age=10, stale-while-revalidate=20";
+export const PUBLIC_CACHE = "public, max-age=0, s-maxage=10";
+export const CDN_CACHE = "max-age=10, stale-while-revalidate=20, stale-if-error=600";
+/** /api/now: the body changes every request, so a validator can never match; the edge may reuse it 2 s. */
+export const NOW_CDN_CACHE = "max-age=2";
 
 export function createApp(deps: AppDeps) {
   const { config, db, verifier, tmdb, hub } = deps;
+  const cache = deps.cache ?? new TtlCache();
+  // Any committed change (from this or another instance) makes the cached status stale.
+  hub.onChange(() => cache.invalidate("status:"));
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1); // exactly one trusted proxy (the CDN/load balancer) in front of the API
@@ -125,6 +140,7 @@ export function createApp(deps: AppDeps) {
     });
   const writeLimit = rateLimited(deps.limits?.writesPerMinute ?? 30, "write");
   const providerLimit = rateLimited(deps.limits?.providerPerMinute ?? 20, "film search");
+  const vitalsLimit = rateLimited(deps.limits?.vitalsPerMinute ?? 120, "measurement");
 
   const ctx = (res: Response): ActorContext => ({
     actorSub: requirePrincipal(res).sub,
@@ -134,6 +150,8 @@ export function createApp(deps: AppDeps) {
   const publicCache = (req: Request, res: Response) => {
     if (!req.get("authorization")) res.set({ "Cache-Control": PUBLIC_CACHE, "CDN-Cache-Control": CDN_CACHE });
   };
+  /** After a successful write on this instance; the change-event listener covers other instances. */
+  const invalidateAfterWrite = () => cache.invalidate("status:");
   const programmerWrite = requireAccess(ROLES.programmer, SCOPES.write);
   const programmerRead = requireAccess(ROLES.programmer, SCOPES.read);
 
@@ -215,6 +233,34 @@ export function createApp(deps: AppDeps) {
     res.json({ items: rows.map((r) => r.genre) });
   });
 
+  // The polled "now showing / next up" feed, behind the app-layer cache (X-Cache: HIT | MISS).
+  app.get("/api/status", async (req, res) => {
+    const { value, hit } = await cache.getOrLoad(STATUS_CACHE_KEY, STATUS_TTL_MS, () => festivalStatus(db, config.festivalTimezone));
+    res.set("X-Cache", hit ? "HIT" : "MISS");
+    publicCache(req, res);
+    res.json(value);
+  });
+
+  // Festival clock for clients whose own clock is wrong. Volatile body: never revalidates.
+  app.get("/api/now", (req, res) => {
+    const now = new Date();
+    if (!req.get("authorization")) res.set({ "Cache-Control": "public, max-age=0", "CDN-Cache-Control": NOW_CDN_CACHE });
+    res.json({
+      now: now.toISOString(),
+      timezone: config.festivalTimezone,
+      festivalClock: new Intl.DateTimeFormat("en-GB", { timeZone: config.festivalTimezone, timeStyle: "medium" }).format(now),
+    });
+  });
+
+  // Real-user monitoring pilot: Core Web Vitals beacons (same origin; validated, bounded, rate-limited).
+  app.post("/api/vitals", vitalsLimit, async (req, res) => {
+    await recordVital(db, VitalInput.parse(req.body));
+    res.status(202).set("Cache-Control", "no-store").json({ accepted: true });
+  });
+  app.get("/api/vitals/summary", async (_req, res) => {
+    res.set("Cache-Control", "no-store").json(await summarizeVitals(db));
+  });
+
   app.get("/api/events", hub.handler);
 
   // ---------- signed-in ----------
@@ -247,6 +293,7 @@ export function createApp(deps: AppDeps) {
   app.post("/api/screenings", programmerWrite, writeLimit, async (req, res) => {
     const input = CreateInput.parse(req.body);
     const created = await createScreening(db, ctx(res), input, config.defaultBufferMinutes);
+    invalidateAfterWrite();
     res.status(201).location(`/api/screenings/${created.id}`).json(created);
   });
 
@@ -254,15 +301,22 @@ export function createApp(deps: AppDeps) {
     const id = Uuid.safeParse(req.params.id);
     if (!id.success) throw new HttpError(404, "not_found", "Screening not found");
     const input = RescheduleInput.parse(req.body);
-    res.json(await rescheduleScreening(db, ctx(res), id.data, input));
+    const moved = await rescheduleScreening(db, ctx(res), id.data, input);
+    invalidateAfterWrite();
+    res.json(moved);
   });
 
   app.post("/api/screenings/:id/cancel", programmerWrite, writeLimit, async (req, res) => {
     const id = Uuid.safeParse(req.params.id);
     if (!id.success) throw new HttpError(404, "not_found", "Screening not found");
     const input = CancelInput.parse(req.body);
-    res.json(await cancelScreening(db, ctx(res), id.data, input));
+    const canceled = await cancelScreening(db, ctx(res), id.data, input);
+    invalidateAfterWrite();
+    res.json(canceled);
   });
+
+  // The React app, same origin as the API (production). In development Vite serves it instead.
+  if (deps.webDist) mountWebApp(app, deps.webDist);
 
   app.use((req: Request, _res: Response, next: NextFunction) => {
     next(new HttpError(404, "not_found", `No route for ${req.method} ${req.path}`));

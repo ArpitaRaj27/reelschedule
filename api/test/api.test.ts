@@ -34,7 +34,7 @@ describe("public catalog", () => {
     expect(res.body.count).toBe(8);
     expect(res.headers["cache-control"]).toBe("public, max-age=0, s-maxage=10");
     // Only the CDN may serve a stale copy while refreshing; browsers always revalidate.
-    expect(res.headers["cdn-cache-control"]).toBe("max-age=10, stale-while-revalidate=20");
+    expect(res.headers["cdn-cache-control"]).toBe("max-age=10, stale-while-revalidate=20, stale-if-error=600");
     expect(res.headers.etag).toBeTruthy();
   });
 

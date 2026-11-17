@@ -103,16 +103,16 @@ describe("versioned, reversible migrations", () => {
     await resetDatabase();
     const db = createPool(TEST_DB);
     try {
-      expect(await appliedVersions(db)).toEqual(["001_core_schema", "002_audit_and_change_events", "003_provider_cache"]);
+      expect(await appliedVersions(db)).toEqual(["001_core_schema", "002_audit_and_change_events", "003_provider_cache", "004_rum_vitals"]);
       // Reverse the latest migration and prove its table is gone…
       await migrateDown(db, 1);
-      await expect(db.query("SELECT 1 FROM provider_cache")).rejects.toThrow(/does not exist/);
+      await expect(db.query("SELECT 1 FROM rum_vitals")).rejects.toThrow(/does not exist/);
       // …then every migration, then forward again.
-      await migrateDown(db, 2);
+      await migrateDown(db, 3);
       expect(await appliedVersions(db)).toEqual([]);
       await migrateUp(db);
-      expect(await appliedVersions(db)).toHaveLength(3);
-      await db.query("SELECT 1 FROM provider_cache");
+      expect(await appliedVersions(db)).toHaveLength(4);
+      await db.query("SELECT 1 FROM rum_vitals");
     } finally {
       await db.end();
     }

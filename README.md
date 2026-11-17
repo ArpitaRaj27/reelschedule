@@ -68,10 +68,12 @@ two screenings in one room conflict when [starts_at, occupied_until) intervals o
 ## Architecture
 
 ```
-Browser (React + TS, Vite)
-  │  public GETs (cacheable), signed-in calls with Bearer token, SSE /api/events
+Browser (React + TS, built by Vite)
+  │  one origin: HTML, /assets/*, /api/* and SSE /api/events
   ▼
-API (Node 22, Express 5, TypeScript strict, zod validation)
+CDN (Cloudflare) ── cache policy per content class (see Caching)
+  ▼
+API (Node 22, Express 5, TypeScript strict, zod validation) — also serves the React build
   ├─ auth: JWT validation (signature, iss, aud, exp), roles + scopes per route
   ├─ services: screenings (interval math, overlap guard, optimistic versioning), films
   ├─ TMDB client: server-side only; timeout, bounded retry, cache, outage policy
@@ -110,6 +112,10 @@ Errors always look like `{ "error": { "code", "message", "details?", "requestId"
 | `GET /api/rooms`, `GET /api/rooms/:id/schedule?date=` | public | |
 | `GET /api/films`, `GET /api/genres` | public | |
 | `GET /api/events` | public | Server-Sent Events. Accepts `Last-Event-ID` or `?lastEventId=` |
+| `GET /api/status` | public | Now showing / next up. Behind the app-layer cache: `X-Cache: HIT \| MISS`, cleared on every write |
+| `GET /api/now` | public | Festival clock. Volatile body (never revalidates); edge may reuse 2 s |
+| `POST /api/vitals` | public | Core Web Vitals beacon (RUM pilot): validated, rate-limited, latest value per page view + metric |
+| `GET /api/vitals/summary` | public | p75 per cohort (desktop/mobile) and metric, with sample counts |
 | `GET /api/me` | signed in | Validated claims: subject, roles, scopes, `canProgram` |
 | `GET /api/films/search?q=` | Programmer + `Schedule.Read` | TMDB search (cached, rate-limited) |
 | `POST /api/films/import` | Programmer + `Schedule.Write` | `{ tmdbId }` → 201 new / 200 refreshed |
@@ -151,7 +157,10 @@ Status codes used: `400 validation_failed / runtime_missing / invalid_json`, `40
 
 | Response | Header | Why |
 |---|---|---|
-| Public GETs | `Cache-Control: public, max-age=0, s-maxage=10` + `CDN-Cache-Control: max-age=10, stale-while-revalidate=20` + ETag | Browsers always revalidate (cheap 304). The CDN may hold a copy for 10 s and refresh it in the background |
+| HTML shell (`/`, app routes) | `Cache-Control: public, max-age=0, must-revalidate` + `CDN-Cache-Control: max-age=30` + ETag + strict CSP | Browsers revalidate every time. After a deploy the new shell (pointing at new asset names) reaches everyone within 30 s, or at once after a purge |
+| Hashed assets `/assets/*` | `public, max-age=31536000, immutable` | A filename never changes content. A missing asset is a JSON 404, never the HTML shell |
+| Public API GETs | `Cache-Control: public, max-age=0, s-maxage=10` + `CDN-Cache-Control: max-age=10, stale-while-revalidate=20, stale-if-error=600` + ETag | Browsers always revalidate (cheap 304). The CDN may hold a copy for 10 s, refresh in the background, and serve stale for 10 minutes if the origin is down |
+| `/api/now` | `public, max-age=0` + `CDN-Cache-Control: max-age=2` | The body changes on every request, so it can never be revalidated; the edge may reuse it for 2 s |
 | Any request with `Authorization` | `private, no-store` | Personal or permissioned data never lands in a shared cache |
 | Errors, SSE, `/healthz` | `no-store` | |
 
@@ -181,8 +190,7 @@ Everything is described in [`render.yaml`](render.yaml), a Render Blueprint:
 | Resource | What it is |
 |---|---|
 | `reelschedule-db` | PostgreSQL 16 (free plan, Ohio region, no public access) |
-| `reelschedule-api-arpita` | The API (free web service). Health check `/healthz`. Runs migrations and loads the synthetic festival on startup (`RUN_MIGRATIONS`, `SEED_DEMO_DATA`), both safe to repeat |
-| `reelschedule-arpita` | The web app as static files on Render's CDN, with an SPA rewrite, security headers (CSP, `X-Frame-Options`, `nosniff`) and one-year immutable caching for hashed `/assets/*` |
+| `reelschedule-api-arpita` | The app (free web service): the API **and** the React build from one origin, so a single hostname sits behind the CDN. Health check `/healthz`. Runs migrations and loads the synthetic festival on startup (`RUN_MIGRATIONS`, `SEED_DEMO_DATA`), both safe to repeat |
 
 **CI/CD:**
 - `.github/workflows/ci.yml` runs type-checks, both test suites (against a real PostgreSQL 16) and a production build on every push.
@@ -215,7 +223,9 @@ Everything is described in [`render.yaml`](render.yaml), a Render Blueprint:
 | `COMMIT_SHA`, `BUILD_ID` | Render's `RENDER_GIT_COMMIT` / service name, else `unknown`, `local` | Reported by `/healthz` for release identity |
 | `RUN_MIGRATIONS`, `SEED_DEMO_DATA` | `false` | Run migrations / load the synthetic festival at startup (both idempotent) |
 
-Web: `VITE_API_BASE_URL` (empty means same origin, via the Vite proxy in development).
+Also `SERVE_WEB` (default `true`) and `WEB_DIST_DIR` (default `web/dist` when it exists): the API serves the React build from its own origin.
+
+Web: `VITE_API_BASE_URL` (empty means same origin; in development the Vite proxy forwards `/api`).
 
 ## What's next
 

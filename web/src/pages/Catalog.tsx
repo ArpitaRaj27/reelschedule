@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { NowNext } from "../components/NowNext";
 import { Empty, ErrorNotice, Loading } from "../components/States";
 import { useDebounced, useGenres, useMeta, useRooms, useScreenings, type ScreeningFilters } from "../lib/queries";
 import { clockTime, formatDay, isoDay } from "../lib/time";
@@ -64,6 +65,8 @@ export function CatalogPage() {
         <h1>Program</h1>
         <p className="lede">Every screening at {meta.festivalName}, with the room, running time and when the room is free again.</p>
       </header>
+
+      <NowNext tz={meta.timezone} />
 
       <div className="catalog-layout">
         <form className="filters" role="search" aria-label="Filter screenings" onSubmit={(e) => e.preventDefault()}>

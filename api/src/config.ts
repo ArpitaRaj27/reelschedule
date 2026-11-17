@@ -32,6 +32,10 @@ const EnvSchema = z.object({
   BUILD_ID: z.string().optional(),
   RENDER_SERVICE_NAME: z.string().optional(),
 
+  // Built React app to serve from the API's origin. Unset: use web/dist when it exists.
+  WEB_DIST_DIR: z.string().optional(),
+  SERVE_WEB: z.enum(["true", "false"]).default("true"),
+
   // Startup tasks for hosts without a shell or pre-deploy step (e.g. Render free instances).
   RUN_MIGRATIONS: z.enum(["true", "false"]).default("false"),
   SEED_DEMO_DATA: z.enum(["true", "false"]).default("false"),
@@ -62,6 +66,7 @@ export interface Config {
   /** False when no identity provider is configured: every signed-in route answers 401 (fail closed). */
   authConfigured: boolean;
   startup: { runMigrations: boolean; seedDemoData: boolean };
+  web: { serve: boolean; distDir?: string };
 }
 
 export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
@@ -103,5 +108,6 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): Config {
     },
     authConfigured: Boolean(env.AUTH_JWKS_URI) || (Boolean(env.DEV_AUTH_JWKS_FILE) && env.NODE_ENV !== "production"),
     startup: { runMigrations: env.RUN_MIGRATIONS === "true", seedDemoData: env.SEED_DEMO_DATA === "true" },
+    web: { serve: env.SERVE_WEB === "true", ...(env.WEB_DIST_DIR ? { distDir: env.WEB_DIST_DIR } : {}) },
   };
 }

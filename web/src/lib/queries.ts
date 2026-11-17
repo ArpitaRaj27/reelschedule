@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, query } from "./api";
 import { dataVersion } from "./freshness";
-import type { Film, Meta, Page, Room, RoomSchedule, Screening, ScreeningStatus } from "./types";
+import type { FestivalStatus, Film, Meta, Page, Room, RoomSchedule, Screening, ScreeningStatus } from "./types";
 
 /** Cache key for public reads: changes whenever a live update arrives (see freshness.ts). */
 const v = () => dataVersion() || undefined;
@@ -74,6 +74,16 @@ export function useRoomSchedule(roomId: string | undefined, date: string | undef
     queryFn: ({ signal }) => api<RoomSchedule>(`/api/rooms/${roomId}/schedule${query({ date, v: v() })}`, { signal }),
     enabled: Boolean(roomId),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Now showing / next up. Polled every 30 s (the clock moves even when nothing is edited) and
+ *  refreshed immediately by live updates. */
+export function useFestivalStatus() {
+  return useQuery({
+    queryKey: ["status"],
+    queryFn: ({ signal }) => api<FestivalStatus>(`/api/status${query({ v: v() })}`, { signal }),
+    refetchInterval: 30_000,
   });
 }
 

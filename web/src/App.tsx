@@ -63,6 +63,7 @@ function Shell() {
       void qc.invalidateQueries({ queryKey: ["room-schedule"] });
       void qc.invalidateQueries({ queryKey: ["preview"] });
       void qc.invalidateQueries({ queryKey: ["meta"] });
+      void qc.invalidateQueries({ queryKey: ["status"] });
       if (e.screeningId) void qc.invalidateQueries({ queryKey: ["screening", e.screeningId] });
       const s = e.payload as Partial<Screening> | null;
       if (s?.film?.title && VERB[e.type]) {

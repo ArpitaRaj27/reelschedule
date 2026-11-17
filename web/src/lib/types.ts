@@ -109,3 +109,22 @@ export interface ScheduleInput {
   startsAt: string;
   bufferMinutes?: number;
 }
+
+export interface StatusItem {
+  id: string;
+  title: string;
+  room: string;
+  venue: string;
+  startsAt: string;
+  endsAt: string;
+  occupiedUntil: string;
+}
+
+export interface FestivalStatus {
+  festival: string;
+  timezone: string;
+  generatedAt: string;
+  nowShowing: StatusItem[];
+  nextUp: StatusItem[];
+  totals: { scheduled: number; canceled: number; rooms: number; roomsInUseNow: number };
+}

@@ -6,6 +6,7 @@ import { createPool, type Db } from "../src/db.js";
 import { EventHub } from "../src/events.js";
 import { migrateUp } from "../src/migrator.js";
 import { TmdbClient, type FetchLike } from "../src/tmdb.js";
+import { TtlCache } from "../src/appCache.js";
 import { seed } from "../scripts/seed.js";
 
 export const TEST_DB = process.env.TEST_DATABASE_URL ?? "postgres://postgres@localhost:5432/reelschedule_test";
@@ -68,7 +69,15 @@ export interface TestContext {
   close(): Promise<void>;
 }
 
-export async function makeApp(opts: { fetchImpl?: FetchLike; tmdbToken?: string; limits?: { writesPerMinute?: number; providerPerMinute?: number } } = {}): Promise<TestContext> {
+export async function makeApp(
+  opts: {
+    fetchImpl?: FetchLike;
+    tmdbToken?: string;
+    limits?: { writesPerMinute?: number; providerPerMinute?: number; vitalsPerMinute?: number };
+    webDist?: string;
+    cache?: TtlCache;
+  } = {},
+): Promise<TestContext> {
   const config = loadConfig({
     NODE_ENV: "test",
     DATABASE_URL: TEST_DB,
@@ -91,7 +100,16 @@ export async function makeApp(opts: { fetchImpl?: FetchLike; tmdbToken?: string;
     fetchImpl: opts.fetchImpl ?? (async () => new Response("{}", { status: 503 })),
     sleep: async () => {},
   });
-  const app = createApp({ config, db, verifier, tmdb, hub, limits: opts.limits ?? { writesPerMinute: 1000, providerPerMinute: 1000 } });
+  const app = createApp({
+    config,
+    db,
+    verifier,
+    tmdb,
+    hub,
+    limits: opts.limits ?? { writesPerMinute: 1000, providerPerMinute: 1000, vitalsPerMinute: 1000 },
+    webDist: opts.webDist ?? null,
+    ...(opts.cache ? { cache: opts.cache } : {}),
+  });
   return {
     app,
     db,

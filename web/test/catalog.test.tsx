@@ -64,6 +64,25 @@ describe("program page", () => {
     expect(Object.fromEntries(sp)).toMatchObject({ genre: "Drama", date: "2026-11-21", roomId: "room-loft", status: "canceled" });
   });
 
+  it("shows what's on next, from /api/status", async () => {
+    renderCatalog({
+      "GET /api/screenings": () => json({ items: [screening()], count: 1, page: 1, pageSize: 25 }),
+      "GET /api/status": () =>
+        json({
+          festival: "Lakeshore Film Festival",
+          timezone: "America/Chicago",
+          generatedAt: "2026-11-17T17:00:00Z",
+          nowShowing: [],
+          nextUp: [{ id: "s1", title: "The Quiet Harbor", room: "Main Hall", venue: "Harborview", startsAt: "2026-11-21T00:00:00.000Z", endsAt: "2026-11-21T01:45:00.000Z", occupiedUntil: "2026-11-21T02:00:00.000Z" }],
+          totals: { scheduled: 8, canceled: 0, rooms: 4, roomsInUseNow: 0 },
+        }),
+    });
+    const strip = await screen.findByRole("region", { name: /now showing and next up/i });
+    expect(within(strip).getByText("Next up")).toBeInTheDocument();
+    expect(within(strip).getByText("Fri, Nov 20, 18:00")).toBeInTheDocument();
+    expect(within(strip).getByRole("link", { name: "The Quiet Harbor" })).toHaveAttribute("href", "/screenings/s1");
+  });
+
   it("explains an empty result and offers to clear filters", async () => {
     renderCatalog({ "GET /api/screenings": () => json({ items: [], count: 0, page: 1, pageSize: 25 }) }, "/?q=zzz");
     expect(await screen.findByText("No screenings match these filters.")).toBeInTheDocument();

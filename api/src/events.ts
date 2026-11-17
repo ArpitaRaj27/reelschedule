@@ -85,6 +85,13 @@ export class EventHub {
   private heartbeat: NodeJS.Timeout | undefined;
   /** Relays run one at a time so frames leave in notification (= commit) order. */
   private relayChain: Promise<void> = Promise.resolve();
+  /** In-process listeners (e.g. app-cache invalidation); every API instance hears every change. */
+  private readonly listeners = new Set<(e: ChangeEvent) => void>();
+
+  onChange(listener: (e: ChangeEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
 
   constructor(private readonly db: Db) {}
 
@@ -130,6 +137,13 @@ export class EventHub {
       const row = rows[0];
       if (!row) return;
       const e = toEvent(row);
+      for (const listener of this.listeners) {
+        try {
+          listener(e);
+        } catch (err) {
+          log.warn("change_listener_failed", { id, err: String(err) });
+        }
+      }
       for (const [res, state] of this.clients) {
         if (state.replaying) state.buffered.push(e);
         else this.send(res, state, e);

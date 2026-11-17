@@ -6,6 +6,7 @@ import { EventHub } from "./events.js";
 import { log } from "./logger.js";
 import { migrateUp } from "./migrator.js";
 import { TmdbClient } from "./tmdb.js";
+import { defaultWebDist } from "./webApp.js";
 import { seed } from "../scripts/seed.js";
 
 // Local development convenience: read api/.env if present (real environment variables win).
@@ -41,13 +42,15 @@ const tmdb = new TmdbClient({
   db,
 });
 
-const app = createApp({ config, db, verifier: verifierFromConfig(config), tmdb, hub });
+const webDist = config.web.serve ? (config.web.distDir ?? defaultWebDist()) : null;
+const app = createApp({ config, db, verifier: verifierFromConfig(config), tmdb, hub, webDist });
 const server = app.listen(config.port, () => {
   log.info("api_started", {
     port: config.port,
     corsOrigins: config.corsOrigins,
     tmdbConfigured: Boolean(config.tmdb.token),
     auth: !config.authConfigured ? "disabled (read-only)" : config.auth.jwksUri ? "jwks" : "dev-jwks",
+    webApp: webDist ?? "not served (API only)",
     commit: config.release.commitSha,
   });
 });
