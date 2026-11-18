@@ -1,0 +1,5 @@
+﻿# Lighthouse 12.8.2, mobile preset, throttling=devtools, performance only: https://reel.miniexhibit.app/
+run 1: score=88  LCP=2909 ms  CLS=0.021  TBT=150 ms  FCP=2909 ms  SI=2307 ms  (2026-11-18T20:45:09.833Z)
+run 2: score=80  LCP=2805 ms  CLS=0.021  TBT=469 ms  FCP=2805 ms  SI=2310 ms  (2026-11-18T20:45:44.417Z)
+run 3: score=61  LCP=4976 ms  CLS=0.021  TBT=428 ms  FCP=4976 ms  SI=3423 ms  (2026-11-18T20:46:18.826Z)
+median by LCP: run 1 -> lh-after-devtools.json

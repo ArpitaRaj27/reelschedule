@@ -14,7 +14,6 @@ export const FALLBACK_META: Meta = {
   days: [],
 };
 
-/** The URL matches the <link rel="preload"> in index.html on first load (no ?v= yet), so the preload is reused. */
 export function useMetaQuery() {
   return useQuery({ queryKey: ["meta"], queryFn: ({ signal }) => api<Meta>(`/api/meta${query({ v: v() })}`, { signal }), staleTime: 60_000 });
 }
