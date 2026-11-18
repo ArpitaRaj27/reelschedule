@@ -39,12 +39,18 @@ export interface VitalSummaryRow {
   p75: number;
 }
 
+/** GET /api/vitals/summary?since=<ISO time>: limits the summary to one pilot window. */
+export const SummaryQuery = z.object({ since: z.iso.datetime({ offset: true }).optional() });
+
 /** p75 per cohort and metric, nearest-rank like the course rum-collector (sorted[ceil(n*0.75)-1]). */
-export async function summarizeVitals(db: Db): Promise<{ label: string; rows: VitalSummaryRow[] }> {
+export async function summarizeVitals(db: Db, since?: Date): Promise<{ label: string; since: string | null; rows: VitalSummaryRow[] }> {
   const { rows } = await db.query<VitalSummaryRow>(
     `SELECT cohort, name, count(*)::int AS n, count(DISTINCT page_view_id)::int AS "pageViews",
             (array_agg(value ORDER BY value))[ceil(count(*) * 0.75)::int] AS p75
-       FROM rum_vitals GROUP BY cohort, name ORDER BY cohort, name`,
+       FROM rum_vitals
+      WHERE $1::timestamptz IS NULL OR received_at >= $1::timestamptz
+      GROUP BY cohort, name ORDER BY cohort, name`,
+    [since ?? null],
   );
-  return { label: "Small convenience pilot; not CrUX or representative field data", rows };
+  return { label: "Small convenience pilot; not CrUX or representative field data", since: since?.toISOString() ?? null, rows };
 }

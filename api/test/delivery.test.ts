@@ -171,4 +171,17 @@ describe("/api/vitals (RUM pilot collector)", () => {
       { cohort: "mobile", name: "LCP", n: 1, pageViews: 1, p75: 5000 },
     ]);
   });
+
+  it("limits the summary to a pilot window with ?since= and rejects a malformed time", async () => {
+    await request(t.app).post("/api/vitals").send(beacon({ id: "old", pageViewId: "pv-old", value: 9000 }));
+    await request(t.app).post("/api/vitals").send(beacon({ id: "new", pageViewId: "pv-new", value: 1200 }));
+    await t.db.query("UPDATE rum_vitals SET received_at = now() - interval '2 days' WHERE metric_id = 'old'");
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const res = await request(t.app).get(`/api/vitals/summary?since=${since}`);
+    expect(res.status).toBe(200);
+    expect(res.body.since).toBe(since);
+    expect(res.body.rows).toEqual([{ cohort: "desktop", name: "LCP", n: 1, pageViews: 1, p75: 1200 }]);
+    expect((await request(t.app).get("/api/vitals/summary")).body.rows[0].n).toBe(2);
+    expect((await request(t.app).get("/api/vitals/summary?since=yesterday")).status).toBe(400);
+  });
 });

@@ -26,7 +26,7 @@ import {
   type ActorContext,
 } from "./services/screenings.js";
 import { festivalStatus } from "./services/status.js";
-import { recordVital, summarizeVitals, VitalInput } from "./services/vitals.js";
+import { recordVital, summarizeVitals, SummaryQuery, VitalInput } from "./services/vitals.js";
 import type { TmdbClient } from "./tmdb.js";
 import { mountWebApp } from "./webApp.js";
 import { z } from "zod";
@@ -257,8 +257,9 @@ export function createApp(deps: AppDeps) {
     await recordVital(db, VitalInput.parse(req.body));
     res.status(202).set("Cache-Control", "no-store").json({ accepted: true });
   });
-  app.get("/api/vitals/summary", async (_req, res) => {
-    res.set("Cache-Control", "no-store").json(await summarizeVitals(db));
+  app.get("/api/vitals/summary", async (req, res) => {
+    const { since } = SummaryQuery.parse(req.query);
+    res.set("Cache-Control", "no-store").json(await summarizeVitals(db, since ? new Date(since) : undefined));
   });
 
   app.get("/api/events", hub.handler);

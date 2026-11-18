@@ -132,7 +132,7 @@ Facts to interpret ✍️:
 | `/api/status` p95 TTFB | ≤ 500 ms | k6 `ttfb_api` |
 
 - **Lighthouse:** `lh-before.json`, `lh-after.json`, delta table. *Candidate improvement:* the "Next up" box appears after the page renders and pushes the program down (a layout shift). Measure it first, then decide.
-- **RUM pilot:** `rum-summary.json` from `/api/vitals/summary`. Report desktop and mobile separately with `n`, and say that a p75 from about 6 samples is unstable. Write the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
+- **RUM pilot:** `rum-summary.json` from `/api/vitals/summary?since=<start of the pilot window>` (`rum-summary.ps1 -Since …`). Lab traffic is kept out: `web/src/lib/rum.ts` sends nothing from Lighthouse, headless Chrome, WebDriver-driven browsers or the Claude desktop browser pane the AI assistant used to check the site (`isAutomated`, tested in `web/test/rum.test.ts`). Page views from before the window (testing while building) are excluded by `since`. Report desktop and mobile separately with `n`, and say that a p75 from about 6 samples is unstable. Write the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
 - **k6:** `k6-summary.txt`. The profile is the course file, unmodified (sha256 recorded). It ran against **my own production** because ReelSchedule has no separate staging yet.
 
 ## Tasks 6–9 — TODO

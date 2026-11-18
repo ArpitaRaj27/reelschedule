@@ -60,10 +60,22 @@ function send(metric: MetricWithAttribution): void {
   }
 }
 
-export function startRum(): void {
+/**
+ * Lab and automated browsers are not users, so they must not land in the field data: Lighthouse
+ * ("Chrome-Lighthouse" in its user agent), headless Chrome, WebDriver-driven browsers, and the
+ * Claude desktop app's browser pane, which the AI assistant used to check this site while building it.
+ */
+export function isAutomated(nav: { userAgent: string; webdriver?: boolean } = navigator): boolean {
+  return nav.webdriver === true || /Chrome-Lighthouse|HeadlessChrome|\bClaude\//.test(nav.userAgent);
+}
+
+/** Starts the pilot; returns false (and sends nothing) in a lab or automated browser. */
+export function startRum(): boolean {
+  if (isAutomated()) return false;
   onLCP(send);
   onINP(send);
   onCLS(send);
   onFCP(send);
   onTTFB(send);
+  return true;
 }

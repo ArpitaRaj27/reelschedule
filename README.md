@@ -115,7 +115,7 @@ Errors always look like `{ "error": { "code", "message", "details?", "requestId"
 | `GET /api/status` | public | Now showing / next up. Behind the app-layer cache: `X-Cache: HIT \| MISS`, cleared on every write |
 | `GET /api/now` | public | Festival clock. Volatile body (never revalidates); edge may reuse 2 s |
 | `POST /api/vitals` | public | Core Web Vitals beacon (RUM pilot): validated, rate-limited, latest value per page view + metric |
-| `GET /api/vitals/summary` | public | p75 per cohort (desktop/mobile) and metric, with sample counts |
+| `GET /api/vitals/summary?since=<ISO time>` | public | p75 per cohort (desktop/mobile) and metric, with sample counts; `since` limits it to one pilot window |
 | `GET /api/me` | signed in | Validated claims: subject, roles, scopes, `canProgram` |
 | `GET /api/films/search?q=` | Programmer + `Schedule.Read` | TMDB search (cached, rate-limited) |
 | `POST /api/films/import` | Programmer + `Schedule.Write` | `{ tmdbId }` → 201 new / 200 refreshed |
