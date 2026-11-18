@@ -77,10 +77,36 @@ describe("program page", () => {
           totals: { scheduled: 8, canceled: 0, rooms: 4, roomsInUseNow: 0 },
         }),
     });
-    const strip = await screen.findByRole("region", { name: /now showing and next up/i });
+    // The strip's box is there from the first render (reserved space), before /api/status answers.
+    const strip = screen.getByRole("region", { name: /now showing and next up/i });
+    expect(within(strip).getByText("Now showing")).toBeInTheDocument();
     expect(within(strip).getByText("Next up")).toBeInTheDocument();
-    expect(within(strip).getByText("Fri, Nov 20, 18:00")).toBeInTheDocument();
-    expect(within(strip).getByRole("link", { name: "The Quiet Harbor" })).toHaveAttribute("href", "/screenings/s1");
+    expect(await within(strip).findByRole("link", { name: "The Quiet Harbor" })).toHaveAttribute("href", "/screenings/s1");
+    expect(within(strip).getByText("Fri 18:00")).toBeInTheDocument(); // another day than generatedAt, so the weekday shows
+    expect(within(strip).getByText("Nothing is showing right now.")).toBeInTheDocument();
+  });
+
+  it("keeps the strip to 3 rows per column: extra screenings collapse into 'and N more'", async () => {
+    const item = (i: number) => ({ id: `n${i}`, title: `Film ${i}`, room: `Room ${i}`, venue: "Harborview", startsAt: "2026-11-21T00:00:00.000Z", endsAt: "2026-11-21T01:45:00.000Z", occupiedUntil: "2026-11-21T02:00:00.000Z" });
+    renderCatalog({
+      "GET /api/screenings": () => json({ items: [], count: 0, page: 1, pageSize: 25 }),
+      "GET /api/status": () =>
+        json({
+          festival: "Lakeshore Film Festival",
+          timezone: "America/Chicago",
+          generatedAt: "2026-11-21T00:30:00Z",
+          nowShowing: [1, 2, 3, 4].map(item),
+          nextUp: [5, 6, 7, 8, 9].map(item),
+          totals: { scheduled: 9, canceled: 0, rooms: 4, roomsInUseNow: 4 },
+        }),
+    });
+    const strip = screen.getByRole("region", { name: /now showing and next up/i });
+    const more = await within(strip).findByRole("link", { name: "And 2 more: see all rooms today" });
+    expect(more).toHaveAttribute("href", "/grid?date=2026-11-20");
+    expect(within(strip).getAllByText("18:00")).toHaveLength(3); // today's screenings show the time only
+    const [now, next] = within(strip).getAllByRole("list");
+    expect(within(now!).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(next!).getAllByRole("listitem")).toHaveLength(3);
   });
 
   it("explains an empty result and offers to clear filters", async () => {

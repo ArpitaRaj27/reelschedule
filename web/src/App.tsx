@@ -143,7 +143,13 @@ function LiveBadge({ status }: { status: LiveStatus }) {
   return (
     <span className={`live-badge is-${status}`} title={status === "live" ? "Changes appear here as soon as they're saved" : "Live updates paused; showing the last loaded schedule"}>
       <span className="live-dot" aria-hidden="true" />
-      {LIVE_TEXT[status]}
+      <span className="live-text">
+        {(Object.keys(LIVE_TEXT) as LiveStatus[]).map((s) => (
+          <span key={s} className={s === status ? undefined : "is-hidden"}>
+            {LIVE_TEXT[s]}
+          </span>
+        ))}
+      </span>
     </span>
   );
 }

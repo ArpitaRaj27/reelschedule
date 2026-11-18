@@ -85,10 +85,11 @@ export function clockTime(iso: string, tz: string): string {
 const dayFormats = {
   long: new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "long", day: "numeric" }),
   short: new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" }),
+  weekday: new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "short" }),
 };
 
-/** "2026-11-20" → "Friday, November 20" (long) or "Fri, Nov 20" (short). */
-export function formatDay(day: string, style: "long" | "short" = "long"): string {
+/** "2026-11-20" → "Friday, November 20" (long), "Fri, Nov 20" (short) or "Fri" (weekday). */
+export function formatDay(day: string, style: "long" | "short" | "weekday" = "long"): string {
   const [y = 0, m = 1, d = 1] = day.split("-").map(Number);
   return dayFormats[style].format(new Date(Date.UTC(y, m - 1, d, 12)));
 }

@@ -6,6 +6,9 @@
     <meta name="description" content="Screening schedule for the Lakeshore Film Festival: search by day, room, genre and status, with live updates." />
     <meta name="theme-color" content="#1F5F8B" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Every page needs the festival metadata before it lays out its filters. Start that request while the
+         JavaScript downloads instead of after it runs; the URL matches the app's first fetch, so it is reused. -->
+    <link rel="preload" href="/api/meta" as="fetch" crossorigin="anonymous" />
     <title>ReelSchedule</title>
   </head>
   <body>

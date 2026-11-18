@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { NowNext } from "../components/NowNext";
 import { Empty, ErrorNotice, Loading } from "../components/States";
-import { useDebounced, useGenres, useMeta, useRooms, useScreenings, type ScreeningFilters } from "../lib/queries";
+import { FALLBACK_META, useDebounced, useGenres, useMetaQuery, useRooms, useScreenings, type ScreeningFilters } from "../lib/queries";
 import { clockTime, formatDay, isoDay } from "../lib/time";
 import type { Room, Screening, ScreeningStatus } from "../lib/types";
 
@@ -10,7 +10,12 @@ const PAGE_SIZE = 25;
 const FILTER_KEYS = ["q", "date", "roomId", "genre", "status"] as const;
 
 export function CatalogPage() {
-  const meta = useMeta();
+  const metaQuery = useMetaQuery();
+  const meta = metaQuery.data ?? FALLBACK_META;
+  // The day filter is built from /api/meta. Laying the filters out before it answers meant the Day field
+  // grew a row when it did and pushed everything below it (a layout shift), so wait for it: on success,
+  // or on failure with the fallback (then the Day filter offers only "All days").
+  const metaSettled = !metaQuery.isPending;
   const rooms = useRooms();
   const genres = useGenres();
   const [params, setParams] = useSearchParams();
@@ -68,105 +73,108 @@ export function CatalogPage() {
 
       <NowNext tz={meta.timezone} />
 
-      <div className="catalog-layout">
-        <form className="filters" role="search" aria-label="Filter screenings" onSubmit={(e) => e.preventDefault()}>
-          <div className="field">
-            <label htmlFor={ids.search}>Film title</label>
-            <input id={ids.search} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search titles" autoComplete="off" />
-          </div>
-
-          <fieldset className="field days">
-            <legend>Day</legend>
-            <div className="segmented">
-              <DayOption label="All days" value="" current={filters.date ?? ""} onPick={(v) => update("date", v || undefined)} />
-              {meta.days.map((d) => (
-                <DayOption key={d} label={formatDay(d, "short")} value={d} current={filters.date ?? ""} onPick={(v) => update("date", v)} />
-              ))}
+      {!metaSettled && <Loading label="Loading the program" />}
+      {metaSettled && (
+        <div className="catalog-layout">
+          <form className="filters" role="search" aria-label="Filter screenings" onSubmit={(e) => e.preventDefault()}>
+            <div className="field">
+              <label htmlFor={ids.search}>Film title</label>
+              <input id={ids.search} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search titles" autoComplete="off" />
             </div>
-          </fieldset>
 
-          <div className="field">
-            <label htmlFor={ids.room}>Room</label>
-            <RoomSelect id={ids.room} rooms={rooms.data ?? []} value={filters.roomId ?? ""} onChange={(v) => update("roomId", v || undefined)} allLabel="All rooms" />
-          </div>
-
-          <div className="field">
-            <label htmlFor={ids.genre}>Genre</label>
-            <select id={ids.genre} value={filters.genre ?? ""} onChange={(e) => update("genre", e.target.value || undefined)}>
-              <option value="">All genres</option>
-              {(genres.data ?? []).map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label htmlFor={ids.status}>Status</label>
-            <select id={ids.status} value={filters.status ?? ""} onChange={(e) => update("status", e.target.value || undefined)}>
-              <option value="">Scheduled and canceled</option>
-              <option value="scheduled">Scheduled only</option>
-              <option value="canceled">Canceled only</option>
-            </select>
-          </div>
-
-          {active && (
-            <button type="button" className="button link" onClick={clear}>
-              Clear filters
-            </button>
-          )}
-        </form>
-
-        <section className="results" aria-labelledby="results-count" aria-busy={list.isFetching}>
-          <p id="results-count" className="count" aria-live="polite">
-            {list.data ? `${list.data.count} ${list.data.count === 1 ? "screening" : "screenings"}` : " "}
-          </p>
-
-          {list.isPending && <Loading />}
-          {list.isError && <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />}
-          {list.data && list.data.count === 0 && (
-            <Empty title="No screenings match these filters.">
-              <p>Try another day or room, or clear the filters to see the whole program.</p>
-              {active && (
-                <button type="button" className="button secondary" onClick={clear}>
-                  Clear filters
-                </button>
-              )}
-            </Empty>
-          )}
-
-          {byDay.map(([day, items]) => (
-            <section key={day} className="day-group" aria-labelledby={`day-${day}`}>
-              <h2 id={`day-${day}`}>
-                {formatDay(day)}
-                <Link className="day-grid-link" to={`/grid?date=${day}`}>
-                  See rooms side by side
-                </Link>
-              </h2>
-              <ol className="listing">
-                {items.map((s) => (
-                  <ScreeningRow key={s.id} s={s} tz={meta.timezone} />
+            <fieldset className="field days">
+              <legend>Day</legend>
+              <div className="segmented">
+                <DayOption label="All days" value="" current={filters.date ?? ""} onPick={(v) => update("date", v || undefined)} />
+                {meta.days.map((d) => (
+                  <DayOption key={d} label={formatDay(d, "short")} value={d} current={filters.date ?? ""} onPick={(v) => update("date", v)} />
                 ))}
-              </ol>
-            </section>
-          ))}
+              </div>
+            </fieldset>
 
-          {list.data && pages > 1 && (
-            <nav className="pager" aria-label="Pages">
-              <button type="button" className="button secondary" disabled={(filters.page ?? 1) <= 1} onClick={() => update("page", String((filters.page ?? 1) - 1))}>
-                Previous page
+            <div className="field">
+              <label htmlFor={ids.room}>Room</label>
+              <RoomSelect id={ids.room} rooms={rooms.data ?? []} value={filters.roomId ?? ""} onChange={(v) => update("roomId", v || undefined)} allLabel="All rooms" />
+            </div>
+
+            <div className="field">
+              <label htmlFor={ids.genre}>Genre</label>
+              <select id={ids.genre} value={filters.genre ?? ""} onChange={(e) => update("genre", e.target.value || undefined)}>
+                <option value="">All genres</option>
+                {(genres.data ?? []).map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor={ids.status}>Status</label>
+              <select id={ids.status} value={filters.status ?? ""} onChange={(e) => update("status", e.target.value || undefined)}>
+                <option value="">Scheduled and canceled</option>
+                <option value="scheduled">Scheduled only</option>
+                <option value="canceled">Canceled only</option>
+              </select>
+            </div>
+
+            {active && (
+              <button type="button" className="button link" onClick={clear}>
+                Clear filters
               </button>
-              <span>
-                Page {filters.page} of {pages}
-              </span>
-              <button type="button" className="button secondary" disabled={(filters.page ?? 1) >= pages} onClick={() => update("page", String((filters.page ?? 1) + 1))}>
-                Next page
-              </button>
-            </nav>
-          )}
-        </section>
-      </div>
+            )}
+          </form>
+
+          <section className="results" aria-labelledby="results-count" aria-busy={list.isFetching}>
+            <p id="results-count" className="count" aria-live="polite">
+              {list.data ? `${list.data.count} ${list.data.count === 1 ? "screening" : "screenings"}` : " "}
+            </p>
+
+            {list.isPending && <Loading />}
+            {list.isError && <ErrorNotice error={list.error} onRetry={() => void list.refetch()} />}
+            {list.data && list.data.count === 0 && (
+              <Empty title="No screenings match these filters.">
+                <p>Try another day or room, or clear the filters to see the whole program.</p>
+                {active && (
+                  <button type="button" className="button secondary" onClick={clear}>
+                    Clear filters
+                  </button>
+                )}
+              </Empty>
+            )}
+
+            {byDay.map(([day, items]) => (
+              <section key={day} className="day-group" aria-labelledby={`day-${day}`}>
+                <h2 id={`day-${day}`}>
+                  {formatDay(day)}
+                  <Link className="day-grid-link" to={`/grid?date=${day}`}>
+                    See rooms side by side
+                  </Link>
+                </h2>
+                <ol className="listing">
+                  {items.map((s) => (
+                    <ScreeningRow key={s.id} s={s} tz={meta.timezone} />
+                  ))}
+                </ol>
+              </section>
+            ))}
+
+            {list.data && pages > 1 && (
+              <nav className="pager" aria-label="Pages">
+                <button type="button" className="button secondary" disabled={(filters.page ?? 1) <= 1} onClick={() => update("page", String((filters.page ?? 1) - 1))}>
+                  Previous page
+                </button>
+                <span>
+                  Page {filters.page} of {pages}
+                </span>
+                <button type="button" className="button secondary" disabled={(filters.page ?? 1) >= pages} onClick={() => update("page", String((filters.page ?? 1) + 1))}>
+                  Next page
+                </button>
+              </nav>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }
