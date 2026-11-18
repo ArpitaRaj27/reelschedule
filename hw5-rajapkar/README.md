@@ -100,8 +100,24 @@ Use `evidence/03-headers/*`. Explain in your own words:
 3. why the purge flipped the asset from `HIT` back to `MISS`;
 4. why a volatile-body endpoint (`/api/now`) can never be `REVALIDATED`.
 
-## Task 4 — Compression ✍️
-Table from `evidence/04-compression.txt`. Note which encoding was actually negotiated; Cloudflare may answer `zstd` or `br` regardless of the origin.
+## Task 4 — Compression
+
+Largest text asset: `/assets/index-CERyDSi4.js`, captured 2026-11-18 18:09 UTC by `scripts/compression.ps1` (`evidence/04-compression.txt`). Bytes are the bytes on the wire: curl ran without `--compressed`, so it did not decode.
+
+| Requested `Accept-Encoding` | Negotiated `Content-Encoding` | Bytes | Saved vs identity | `cf-cache-status` (Age) |
+|---|---|---:|---:|---|
+| identity | none | 352,290 | — | MISS |
+| gzip | gzip | 107,907 | 69.4% | HIT (1) |
+| br | br | 109,286 | 69.0% | HIT (2) |
+| zstd | zstd | 112,305 | 68.1% | HIT (3) |
+
+Facts to interpret ✍️:
+- Every encoding asked for was honored; there was no silent fallback to identity.
+- **Brotli came out 1,379 bytes (1.3%) larger than gzip**, and zstd 4,398 bytes (4.1%) larger. On a static asset, brotli at a high quality level usually beats gzip.
+- The identity request filled the cache (MISS); the gzip, br and zstd requests were HITs with `Age` 1, 2, 3, all from the same data center. One cached copy served all four encodings.
+- Possible explanation (a hypothesis, not verified): Cloudflare compresses on the fly at a fast, low quality level. The Free plan has no setting that shows this. If you use it, label it as a hypothesis, like the course's own example.
+- All four requests were answered at `-NRT` (Tokyo) although the client is in Chicago. Earlier runs also landed at ARN and MAN. Note this as a fact; don't explain it unless you have a source.
+- Against the budget: 108 KB of JavaScript compressed (gzip) is under the 200 KB compressed budget in Task 5.
 
 ## Task 5 — Performance
 

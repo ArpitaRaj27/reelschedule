@@ -1,5 +1,6 @@
 <#
-  HW5 Task 4: transfer size of the largest text asset under identity, gzip and br.
+  HW5 Task 4: transfer size of the largest text asset under identity, gzip, br and zstd.
+  curl does not decode here (no --compressed), so size_download is the bytes on the wire.
 
   Run from the repository root:
       powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\compression.ps1
@@ -18,7 +19,7 @@ $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 Add-Content -Path $out -Encoding utf8 -Value "# Largest text asset: $url`n# UTC: $utc`n"
 
 $rows = @()
-foreach ($enc in @("identity", "gzip", "br")) {
+foreach ($enc in @("identity", "gzip", "br", "zstd")) {
   $cmd = "curl.exe -sS -o NUL -D - -H 'Accept-Encoding: $enc' -w '%{size_download}' $url"
   $raw = (& curl.exe -sS -o NUL -D - -H "Accept-Encoding: $enc" -w "`n__SIZE__%{size_download}" $url | Out-String)
   $size = [int]([regex]::Match($raw, '__SIZE__(\d+)').Groups[1].Value)

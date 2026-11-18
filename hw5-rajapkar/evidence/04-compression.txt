@@ -1,0 +1,166 @@
+﻿# Largest text asset: https://reel.miniexhibit.app/assets/index-CERyDSi4.js
+# UTC: 2026-11-18T18:09:06.623Z
+
+# Command: curl.exe -sS -o NUL -D - -H 'Accept-Encoding: identity' -w '%{size_download}' https://reel.miniexhibit.app/assets/index-CERyDSi4.js
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 18:09:10 GMT
+Content-Type: text/javascript; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+x-xss-protection: 0
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=31536000, immutable
+cf-cache-status: MISS
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"56022-1a1eb121040"
+last-modified: Tue, 17 Nov 2026 19:53:12 GMT
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 7cfb8696-093c-4fde
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: 8cf02e50-1abb-4c56-b278-d90687279e93
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=NJIQqrfAC%2BNks6bOHT5Cl7tk1r7R6XaMSDAqv7a3iqJHHyz54nCuIF3BLddti%2BuI7MfKSMjTVKcsxNopMyEUNrpUdloqjRLVW8iY09AaDnJgs1eTgCeYr2l0Uf17wu936fkF8cy8%2Fw%3D%3D"}]}
+CF-RAY: a5c8ecb19c4016ef-NRT
+alt-svc: h3=":443"; ma=86400
+
+
+
+
+
+# Command: curl.exe -sS -o NUL -D - -H 'Accept-Encoding: gzip' -w '%{size_download}' https://reel.miniexhibit.app/assets/index-CERyDSi4.js
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 18:09:11 GMT
+Content-Type: text/javascript; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+x-xss-protection: 0
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=31536000, immutable
+cf-cache-status: HIT
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"56022-1a1eb121040"
+last-modified: Tue, 17 Nov 2026 19:53:12 GMT
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 7cfb8696-093c-4fde
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: 8cf02e50-1abb-4c56-b278-d90687279e93
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Age: 1
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=2nQFexN0JSbuDEJ0%2BkPxrQ0C0yU5MSM2CFi0DBLaaZlUZJmaek8AMyJDgQGUP5FapQis%2FsgnLrXYDwvIY3Uq9pApdSERPFSO24TmbDURwgt2wEU2cKPuvxPZKwgd%2F37ZJy%2BffScf1Q%3D%3D"}]}
+Content-Encoding: gzip
+CF-RAY: a5c8ecc10daff621-NRT
+alt-svc: h3=":443"; ma=86400
+
+
+
+
+
+# Command: curl.exe -sS -o NUL -D - -H 'Accept-Encoding: br' -w '%{size_download}' https://reel.miniexhibit.app/assets/index-CERyDSi4.js
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 18:09:12 GMT
+Content-Type: text/javascript; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+x-xss-protection: 0
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=31536000, immutable
+cf-cache-status: HIT
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"56022-1a1eb121040"
+last-modified: Tue, 17 Nov 2026 19:53:12 GMT
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 7cfb8696-093c-4fde
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: 8cf02e50-1abb-4c56-b278-d90687279e93
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Age: 2
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=b8xIGVs79qjATLqb8Jv%2B6gfseBcn50JEJF1PCaGyNke6Qf%2FovgBLs9xR%2FNbJNTxavS995O8KPRNaeZIR4%2FU2aPU85wcQtvJOIpMgmdTkJS5QpyUhyj0pCTtDVJOQANW11Pfj6kNoEQ%3D%3D"}]}
+Content-Encoding: br
+CF-RAY: a5c8ecc74e5b6db4-NRT
+alt-svc: h3=":443"; ma=86400
+
+
+
+
+
+# Command: curl.exe -sS -o NUL -D - -H 'Accept-Encoding: zstd' -w '%{size_download}' https://reel.miniexhibit.app/assets/index-CERyDSi4.js
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 18:09:13 GMT
+Content-Type: text/javascript; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+x-xss-protection: 0
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=31536000, immutable
+cf-cache-status: HIT
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"56022-1a1eb121040"
+last-modified: Tue, 17 Nov 2026 19:53:12 GMT
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 7cfb8696-093c-4fde
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: 8cf02e50-1abb-4c56-b278-d90687279e93
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Age: 3
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=Yg%2BdPrKSqURjoWQwm4sWXDZlgRtgjU6W6WNUmqT6QJZ%2BF0rJ48h8FSwNU33v2ElPzvlktd8h2G7wn8h20wUfcLb%2FZSVNMDkKdR%2FhZX%2BSl4%2F%2FpY%2FkdzI7UgSQsLjmDJe2wxLRKmA8cQ%3D%3D"}]}
+Content-Encoding: zstd
+CF-RAY: a5c8eccd1d07cc19-NRT
+alt-svc: h3=":443"; ma=86400
+
+
+
+
+
+# Summary
+identity  negotiated=(none: identity)   bytes=  352290  saved=    0%  cf-cache-status=MISS
+gzip      negotiated=gzip               bytes=  107907  saved= 69.4%  cf-cache-status=HIT
+br        negotiated=br                 bytes=  109286  saved=   69%  cf-cache-status=HIT
+zstd      negotiated=zstd               bytes=  112305  saved= 68.1%  cf-cache-status=HIT
