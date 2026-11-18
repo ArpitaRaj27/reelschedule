@@ -240,6 +240,19 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 - **The JS file name did not change** (`index-B90xKGRO.js` in both builds): Rollup computes the hash before it appends the source-map comment. So for once a hashed asset changed under the same name. Cloudflare had both the JS and the map cached as `immutable`, so both URLs are purged once after the deploy. This is the one exception to "never purged" in the cache-policy matrix.
 - A bundle analysis is still possible: `npm run build -w web -- --sourcemap hidden` writes a map locally that the JS does not link to.
 
+**After the change** (commit `39b13bb` live; `evidence/06-bundle/asset-size-report-39b13bb.txt`, 2026-11-18 22:00 UTC):
+
+| | Before (`c1dc15c`) | After (`39b13bb`) |
+|---|---:|---:|
+| `index-B90xKGRO.js`, identity | 353,474 | 353,431 (−43) |
+| `index-B90xKGRO.js`, br | 110,898 | 110,864 (−34) |
+| `index-B90xKGRO.js`, gzip | 108,234 | 108,199 (−35) |
+| JS names a source map | `index-B90xKGRO.js.map` | (none) |
+| `GET index-B90xKGRO.js.map` | 200, 1,911,676 bytes, `HIT` | **404**, 125-byte JSON error, `BYPASS` |
+
+- The new JS came from Cloudflare's cache (`HIT`), so the edge held the new file under the old name.
+- The CSS file was byte-identical in both runs (17,097 bytes uncompressed), yet its compressed size changed: br 4,701 → 4,711, gzip 4,569 → 4,576. Cloudflare compresses at the edge, and the output for the same file differed between the two captures.
+
 **Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, and does that matter if the GitHub repository is public? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
 
 ## Tasks 7–9 — TODO

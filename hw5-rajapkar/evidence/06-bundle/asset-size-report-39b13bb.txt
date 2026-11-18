@@ -1,0 +1,20 @@
+﻿# HW5 Task 6 asset-size report, 2026-11-18T22:00:52Z
+production /healthz: {"ok":true,"db":"up","commit":"39b13bb468b8d31add15b04ff359b3f6b3291e17","build":"reelschedule-api-arpita","auth":"disabled","sseClients":1}
+HTML at https://reel.miniexhibit.app/ references: /assets/index-8QA3ZZYN.css, /assets/index-B90xKGRO.js
+
+## Bytes on the wire from production (curl, no decoding)
+/assets/index-8QA3ZZYN.css     asked=br       got=br    status=200 bytes=    4711 cf-cache-status=HIT
+/assets/index-8QA3ZZYN.css     asked=gzip     got=gzip  status=200 bytes=    4576 cf-cache-status=HIT
+/assets/index-8QA3ZZYN.css     asked=identity got=none  status=200 bytes=   17097 cf-cache-status=HIT
+/assets/index-B90xKGRO.js      asked=br       got=br    status=200 bytes=  110864 cf-cache-status=HIT
+/assets/index-B90xKGRO.js      asked=gzip     got=gzip  status=200 bytes=  108199 cf-cache-status=HIT
+/assets/index-B90xKGRO.js      asked=identity got=none  status=200 bytes=  353431 cf-cache-status=HIT
+
+## Source map
+/assets/index-B90xKGRO.js is 353431 bytes uncompressed; its last line names a source map: (none)
+GET https://reel.miniexhibit.app/assets/index-B90xKGRO.js.map (identity) -> status 404, content-type application/json; charset=utf-8, 125 bytes, cf-cache-status BYPASS
+GET https://reel.miniexhibit.app/assets/index-B90xKGRO.js.map (br)       -> 114 bytes on the wire, content-encoding br
+
+## What /assets/index-B90xKGRO.js is made of (minified bytes, by npm package)
+(skipped: production serves no source map. To analyse the bundle, build one locally that the JS does not link to:
+ npm ci; npm run build -w web -- --sourcemap hidden; node hw5-rajapkar\scripts\bundle-composition.mjs web\dist\assets\<index-*.js>)
