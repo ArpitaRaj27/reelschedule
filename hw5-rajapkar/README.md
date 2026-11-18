@@ -250,10 +250,11 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 | JS names a source map | `index-B90xKGRO.js.map` | (none) |
 | `GET index-B90xKGRO.js.map` | 200, 1,911,676 bytes, `HIT` | **404**, 125-byte JSON error, `BYPASS` |
 
-- The new JS came from Cloudflare's cache (`HIT`), so the edge held the new file under the old name.
+- Both URLs (`index-B90xKGRO.js` and `index-B90xKGRO.js.map`) were purged in the Cloudflare dashboard (Custom Purge → URL) after `39b13bb` went live. The new JS then came from Cloudflare's cache (`HIT`), so the edge held the new file under the old name.
+- The GitHub repository is **private**, so the public map was the only public copy of the original source.
 - The CSS file was byte-identical in both runs (17,097 bytes uncompressed), yet its compressed size changed: br 4,701 → 4,711, gzip 4,569 → 4,576. Cloudflare compresses at the edge, and the output for the same file differed between the two captures.
 
-**Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, and does that matter if the GitHub repository is public? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
+**Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, given that the repository is private? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
 
 ## Tasks 7–9 — TODO
 To be filled after those captures.
