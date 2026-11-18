@@ -57,6 +57,8 @@ Automated checks of the same policy (run in CI on every push): `npm test` → `a
   Without the rule, Cloudflare caches only static file extensions, so HTML and `/api/*` show `DYNAMIC`.
 - **Key composition (decision b):** Cloudflare's default key, i.e. the full URL including the query string. Cookies and `Authorization` are not in the key.
 - **Origin directives (decision c):** the edge TTL comes from the origin. Cloudflare reads `CDN-Cache-Control` ahead of `Cache-Control`, so the origin can give the edge and browsers different TTLs.
+- **Browser Cache TTL (found in run 1, fixed 2026-11-18):** the zone setting was on Cloudflare's default (4 hours), which raised the origin's `max-age=0` to `max-age=14400` on every response through the zone, so browsers could have reused API data for 4 hours. Set to **Respect Existing Headers**; run 2 shows the origin's `public, max-age=0, s-maxage=10` arriving unchanged. Before/after: `evidence/run1-2026-11-17-before-fixes/03-headers/miss.txt` vs `evidence/03-headers/miss.txt`.
+- **Origin hostname vs region:** in `01-edge-proof.txt` the Render hostname resolves through `gcp-us-west1-1.origin.onrender.com`, but the Render dashboard lists the service region as **ohio** (checked 2026-11-18). Don't infer the origin's location from that CNAME name.
 
 **Observation worth explaining (✍️):** before the zone was proxied, responses *already* carried `server: cloudflare` and `cf-cache-status: DYNAMIC`. Render's own edge runs on Cloudflare. `01-edge-proof.txt` compares DNS answers and headers for the custom domain and the raw origin hostname; correlate them instead of trusting one header.
 
@@ -75,6 +77,20 @@ Configuration columns are taken from the code (`api/src/webApp.ts`, `api/src/app
 | Authenticated | `/api/me`, `/api/films/search`, writes | **none** | `Cache-Control: private, no-store` whenever `Authorization` is present | — | never stored | Planned for HW7 sign-in; acceptance test exists (`api.test.ts` "marks authenticated responses private, no-store"); the edge bypasses because the origin says `no-store` |
 | Live stream | `/api/events` (SSE) | none | `no-store`; excluded by the cache rule | — | never stored | A cached event stream would replay one moment forever |
 | Errors | any 4xx/5xx JSON | none | `no-store` | — | never stored | An error must not outlive its cause |
+
+## Captures (facts)
+
+| Run | When (UTC) | Deployed commit | Where | What it showed |
+|---|---|---|---|---|
+| 1 | 2026-11-17 19:58–20:04 | `8ae439e` | `evidence/run1-2026-11-17-before-fixes/` (see its `NOTES.md`) | 4 h Browser Cache TTL override; a 304 false negative caused by the script; purge before/after answered by different data centers (DFW, MAN) |
+| 2 | 2026-11-18 17:57–18:03 | `8ae439e` | `evidence/01-edge-proof.txt`, `02-app-cache-miss-hit.txt`, `03-headers/` | all four states as designed (below) |
+
+Run 2, for the narrative (the CF-RAY suffix is the Cloudflare data center that answered):
+
+- **Edge MISS → HIT:** the same `/api/status?probe=…` key, both answered at `-CMH`; the HIT carries `Age: 3`.
+- **App cache:** `X-Cache` went MISS → HIT → (after 11 s) MISS while `cf-cache-status` stayed MISS on every request (each request used a new `?probe=` key, so each one reached the origin). In `03-headers/miss.txt` the edge says MISS while the app says HIT: the two layers are independent.
+- **304:** step 1 got `200`, 4871 bytes (MISS at `-ATL`); step 2 sent the saved ETag and got `304 Not Modified`, 0 bytes, with `cf-cache-status: MISS` at `-CMH`.
+- **Purge:** warm request MISS, then HIT (`Age: 0`) at `-CMH`; single-URL purge at 18:03:13; the next request was a **MISS at `-CMH`** (the same data center), so the purge removed that copy. The request after it was routed to `-ARN`, whose cache had never held the file, so it was also a MISS. No refill HIT was captured, and none is needed for the proof.
 
 ## Task 3 — Cache-state narrative ✍️
 

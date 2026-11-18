@@ -1,0 +1,132 @@
+﻿# App cache 1: first read after expiry (expect X-Cache: MISS)
+# UTC: 2026-11-18T17:57:38.738Z
+# Command: curl.exe -sS -o NUL -D - --max-time 90 -w '
+# timing: dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download} status=%{http_code}
+' https://reel.miniexhibit.app/api/status?probe=4a897a3a5f
+
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 17:57:41 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=0, s-maxage=10
+cdn-cache-control: max-age=10, stale-while-revalidate=20, stale-if-error=600
+cf-cache-status: MISS
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"576-MD+u44ZdeNu93AzahB93NS0PAXM"
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 9304c7d3-d6a7-4f80
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-cache: MISS
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: a8d6fc16-e9d5-418f-a46c-ae04d66ae841
+x-xss-protection: 0
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=y%2BDxT8F2bxD7W7IKI0Wlz6tYHUuVSBnZ7xTiJjGyf4yQKfI2guCcp2GVASo7DrxeuAYmNhEamch7VPtjWPppRGU%2BQkswXqhranDqaeZbrq%2BgU5%2BHE6Ytu5%2B6y3db94KbEujz4QmTmw%3D%3D"}]}
+CF-RAY: a5c8dbe3f9b8376a-CMH
+alt-svc: h3=":443"; ma=86400
+
+
+# timing: dns=0.028084s connect=0.064665s tls=0.120342s ttfb=0.269031s total=0.269293s bytes=1398 status=200
+
+# App cache 2: immediately again (expect X-Cache: HIT)
+# UTC: 2026-11-18T17:57:39.151Z
+# Command: curl.exe -sS -o NUL -D - --max-time 90 -w '
+# timing: dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download} status=%{http_code}
+' https://reel.miniexhibit.app/api/status?probe=640e6ba57a
+
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 17:57:41 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=0, s-maxage=10
+cdn-cache-control: max-age=10, stale-while-revalidate=20, stale-if-error=600
+cf-cache-status: MISS
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"576-MD+u44ZdeNu93AzahB93NS0PAXM"
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: c335f518-d832-4fa2
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-cache: HIT
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: a227aaee-ae77-410e-9c81-f7480a07fe81
+x-xss-protection: 0
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=IoJBVnVexpXIkoQVF4XKMkwec7N%2F8OnkwmGeUSVCbrlwOMYI%2Fxi6Oh2mNaXMijcUwdPeV5FDLzBnrNpZdDEVUd3htey7E%2FBH8uvNL2Hx4FtO%2B3dd8qVtzUvblZJP4JLGFQU2ZM8A0A%3D%3D"}]}
+CF-RAY: a5c8dbe6ef9fb6ed-CMH
+alt-svc: h3=":443"; ma=86400
+
+
+# timing: dns=0.023430s connect=0.043168s tls=0.099812s ttfb=0.392084s total=0.392322s bytes=1398 status=200
+
+# App cache 3: after the 10 s TTL (expect X-Cache: MISS)
+# UTC: 2026-11-18T17:57:50.654Z
+# Command: curl.exe -sS -o NUL -D - --max-time 90 -w '
+# timing: dns=%{time_namelookup}s connect=%{time_connect}s tls=%{time_appconnect}s ttfb=%{time_starttransfer}s total=%{time_total}s bytes=%{size_download} status=%{http_code}
+' https://reel.miniexhibit.app/api/status?probe=8c5f4ec036
+
+HTTP/1.1 200 OK
+Date: Wed, 18 Nov 2026 17:57:53 GMT
+Content-Type: application/json; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+access-control-expose-headers: Location,X-Request-Id
+Cache-Control: public, max-age=0, s-maxage=10
+cdn-cache-control: max-age=10, stale-while-revalidate=20, stale-if-error=600
+cf-cache-status: MISS
+content-security-policy: default-src 'none';base-uri 'self';font-src 'self' https: data:;form-action 'self';frame-ancestors 'none';img-src 'self' data:;object-src 'none';script-src 'self';script-src-attr 'none';style-src 'self' https: 'unsafe-inline';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-site
+etag: W/"576-YZ/YKlQFrOC9U+Nz2FmPy99NvrU"
+origin-agent-cluster: ?1
+referrer-policy: no-referrer
+rndr-id: 963ec495-c6fb-4d78
+Server: cloudflare
+strict-transport-security: max-age=31536000; includeSubDomains
+vary: Origin
+vary: Accept-Encoding
+x-cache: MISS
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-render-origin-server: Render
+x-request-id: ee737bac-297c-4614-b6f2-93b2b3c24358
+x-xss-protection: 0
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=rPwOspqgc0skbzoSJDRFb65Z8FvVmhMiUOSGPF64%2Bw3v5Ws6qbxgWL6KpKFWGas7hE%2FpKdsA9sKwJ%2Bwf6%2BstZclTkgp9jyFLxFCDV0Gkca6QbJHlSHwYRkg%2BJmegA3r%2BCV6q87IOAw%3D%3D"}]}
+CF-RAY: a5c8dc2e2ed2f8ab-CMH
+alt-svc: h3=":443"; ma=86400
+
+
+# timing: dns=0.012188s connect=0.029770s tls=0.088515s ttfb=0.181062s total=0.181399s bytes=1398 status=200
+
+# Note: production writes need sign-in (not configured until HW7), so this run shows TTL expiry.
+# Invalidation on write is proven by api/test/delivery.test.ts ('MISS -> HIT -> (write) -> MISS').
+

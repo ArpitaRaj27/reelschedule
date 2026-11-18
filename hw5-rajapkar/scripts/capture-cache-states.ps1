@@ -84,10 +84,16 @@ Probe $hitFile "HIT: the same key 3 s later (expect Age around 3)" $key | Out-Nu
 # ---------------------------------------------------------------- 3. 304 Not Modified
 $file304 = Join-Path $headersDir "304.txt"; Fresh $file304
 $listUrl = "$Base/api/screenings?probe=" + [guid]::NewGuid().ToString("N").Substring(0, 10)
-$first = Probe $file304 "Step 1: capture the ETag" $listUrl
-$etag = Header $first "etag"
-if (-not $etag) { Write-Warning "No ETag captured; see $file304" }
-Probe $file304 "Step 2: conditional request with that ETag (expect 304 and bytes=0)" $listUrl @("-H", "If-None-Match: $etag") | Out-Null
+# curl stores and replays the validator itself (--etag-save / --etag-compare). Passing it with
+# -H "If-None-Match: W/\"...\"" from Windows PowerShell 5.1 strips the inner quotes, so the edge
+# sees a validator that cannot match and answers 200 (run 1 found exactly that; see run1 NOTES.md).
+$etagFile = Join-Path $env:TEMP ("reel-etag-" + [guid]::NewGuid().ToString("N").Substring(0, 6) + ".txt")
+Probe $file304 "Step 1: fetch and save the ETag (curl --etag-save)" $listUrl @("--etag-save", $etagFile) | Out-Null
+$saved = (Get-Content $etagFile -Raw).Trim()
+if (-not $saved) { Write-Warning "No ETag captured; see $file304" }
+Add-Content -Path $file304 -Encoding utf8 -Value "# Validator saved by curl and sent back as If-None-Match: $saved`n"
+Probe $file304 "Step 2: conditional request, If-None-Match from the saved file (expect 304 and bytes=0)" $listUrl @("--etag-compare", $etagFile) | Out-Null
+Remove-Item $etagFile -ErrorAction SilentlyContinue
 
 # ---------------------------------------------------------------- 4. invalidation by purge
 $html = (& curl.exe -sS --max-time 90 "$Base/" | Out-String)
@@ -95,6 +101,8 @@ $asset = [regex]::Match($html, '/assets/index-[A-Za-z0-9_-]+\.js').Value
 if (-not $asset) { throw "Could not find the main JS asset in the HTML" }
 $before = Join-Path $headersDir "purge-before.txt"; Fresh $before
 $after = Join-Path $headersDir "purge-after.txt"; Fresh $after
+# Each Cloudflare data center (the code after the dash in CF-RAY, e.g. -DFW) has its own cache.
+# For a clean purge proof, the before-HIT and after-MISS should come from the same data center.
 Probe $before "Before purge: warm the edge" "$Base$asset" | Out-Null
 Probe $before "Before purge: served from the edge (expect HIT)" "$Base$asset" | Out-Null
 Write-Host "`nNOW PURGE THIS URL in Cloudflare:" -ForegroundColor Yellow
