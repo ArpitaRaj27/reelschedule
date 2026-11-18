@@ -1,0 +1,38 @@
+﻿# k6 standard profile run
+start UTC:      2026-11-18T22:20:59Z
+end UTC:        2026-11-18T22:24:03Z
+target:         https://reel.miniexhibit.app (my own deployment; no separate staging)
+live commit:    {"ok":true,"db":"up","commit":"39b13bb468b8d31add15b04ff359b3f6b3291e17","build":"reelschedule-api-arpita","auth":"disabled","sseClients":1}
+asset:          /assets/index-B90xKGRO.js
+k6:             k6.exe v2.4.0 (commit/dd9395906d, go1.26.11, windows/amd64)
+profile sha256: 2f08087e7a86bff20ea9a582deefec6457fa59d97545887725a8368f7c9e772a (matches the course file)
+command:        k6 run --quiet --no-color -e BASE=https://reel.miniexhibit.app -e ASSET=/assets/index-B90xKGRO.js campuspulse-load-profile.js   (run in evidence\05-performance)
+k6 exit code:   0   (0 = all thresholds passed; 99 = at least one failed)
+
+## Course thresholds (from k6-summary.json)
+http_req_duration{kind:asset}    p(95)<300    PASS
+http_req_failed                  rate<0.01    PASS
+http_req_duration{kind:html}     p(95)<800    PASS
+http_req_duration{kind:api}      p(95)<500    PASS
+cache_hit_rate                   rate>0.60    PASS
+
+## k6 console output
+CampusPulse standard load profile ΓÇö summary
+==========================================
+target            https://reel.miniexhibit.app
+duration          180s (30s ramp / 120s hold / 30s ramp-down), peak 10 VUs
+requests          1260
+failed            0.0%
+
+latency (server wait / TTFB)
+  html   p95      107 ms
+  api    p95      106 ms
+  asset  p95      91 ms
+
+edge cache
+  hit ratio       92.3%
+  HIT / STALE     1119
+  MISS / EXPIRED  97
+  REVALIDATED     44   (bytes reused, origin contacted)
+  BYPASS/DYNAMIC  0
+  unrecognised    0

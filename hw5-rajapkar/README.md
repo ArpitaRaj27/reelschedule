@@ -195,7 +195,24 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 
 **Interpretation ✍️:** how much does a p75 of 3–4 samples tell you? What does the missing iPhone CLS mean for a festival audience that is mostly on phones? Why might the phone report TTFB once and LCP so low (hint: how does web-vitals treat a page restored from the back/forward cache)? Include the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
 
-- **k6:** `k6-summary.txt`. The profile is the course file, unmodified (sha256 recorded). It ran against **my own production** because ReelSchedule has no separate staging yet.
+### k6 (facts)
+
+`evidence/05-performance/k6-run.txt`, `k6-summary.txt`, `k6-summary.json` (`scripts/load-test.ps1`). Run 2026-11-18 22:20:59–22:24:03 UTC from my laptop with k6 v2.4.0. The profile is the course file, **unmodified**: sha256 `2f08087e7a86bff20ea9a582deefec6457fa59d97545887725a8368f7c9e772a`, which the script checks before it runs. Target: https://reel.miniexhibit.app, **my own production** (live commit `39b13bb`), because ReelSchedule has no separate staging yet.
+
+| Course threshold | Limit | Measured | Result |
+|---|---|---:|---|
+| `http_req_failed` | < 1% | 0% (0 of 1,260) | PASS |
+| `http_req_duration{kind:html}` p95 | < 800 ms | 108 ms | PASS |
+| `http_req_duration{kind:api}` p95 | < 500 ms | 108 ms | PASS |
+| `http_req_duration{kind:asset}` p95 | < 300 ms | 136 ms | PASS |
+| `cache_hit_rate` | > 60% | 92.3% | PASS |
+
+- 210 journeys, 1,260 requests (6.8/s), peak 10 virtual users, 184 s; all 1,260 checks passed; k6 exit code 0.
+- TTFB p95: HTML 107 ms, API 106 ms, asset 91 ms. My budget's `/api/status` p95 ≤ 500 ms is met (`ttfb_api` p95 106 ms; that metric also includes `/api/now`, 1 of the 4 API requests per journey).
+- Edge cache: HIT 1,119, MISS/EXPIRED 97, REVALIDATED 44, BYPASS 0. The profile counts REVALIDATED as a hit (bytes reused, origin contacted): (1,119 + 44) / 1,260 = 92.3%. Counting only HIT: 1,119 / 1,260 = 88.8%.
+- Data received: 76,310,535 bytes, about 363 KB per journey, roughly the size of the **uncompressed** JS (353,431 bytes). k6 does not ask for compression unless the script sets `Accept-Encoding`, so each asset request downloaded the identity body; a browser receives about 111 KB (Task 6).
+
+**Interpretation ✍️:** which requests do you think made up the 97 misses (look at each content class's edge TTL in the cache-policy matrix)? What does REVALIDATED mean for origin load? Is a 3-minute run at 10 users on a free origin evidence of capacity, or only of this cache policy? Say plainly that the target was your production.
 
 ## Task 6 — Bundle size
 

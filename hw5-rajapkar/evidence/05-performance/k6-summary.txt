@@ -1,0 +1,19 @@
+CampusPulse standard load profile — summary
+==========================================
+target            https://reel.miniexhibit.app
+duration          180s (30s ramp / 120s hold / 30s ramp-down), peak 10 VUs
+requests          1260
+failed            0.0%
+
+latency (server wait / TTFB)
+  html   p95      107 ms
+  api    p95      106 ms
+  asset  p95      91 ms
+
+edge cache
+  hit ratio       92.3%
+  HIT / STALE     1119
+  MISS / EXPIRED  97
+  REVALIDATED     44   (bytes reused, origin contacted)
+  BYPASS/DYNAMIC  0
+  unrecognised    0

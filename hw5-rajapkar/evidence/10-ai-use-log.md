@@ -17,6 +17,7 @@ Course rule: record what AI **generated**, what you **accepted / rejected / chan
 | 2026-11-18 | `rum-summary.ps1` run window and the RUM facts table in the README (the visits and devices are mine) | | |
 | 2026-11-18 | `asset-size.ps1`, `bundle-composition.mjs` (cross-checked against `source-map-explorer`), the Render build log copied through the browser pane, and the Task 6 tables (facts only) | | e.g. I ran `asset-size.ps1` myself; compare the build log with the Render dashboard |
 | 2026-11-18 | Turning off production source maps (`web/vite.config.ts`) after I chose "reduce" | | e.g. the map URL returns 404 after the deploy and purge |
+| 2026-11-18 | `load-test.ps1` (course-profile sha256 check, k6 run in the evidence folder, threshold table) and the k6 facts in the README | | e.g. I ran it myself; numbers come from `k6-summary.json` |
 
 ## Challenged AI claim
 ✍️ See the README section "Challenged AI claim". State the claim, the evidence that contradicted it (file + line), and what you did about it.
