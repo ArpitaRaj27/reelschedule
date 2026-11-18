@@ -35,7 +35,8 @@ powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\capture-cache-stat
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\compression.ps1            # Task 4
 $env:CF_API_TOKEN = "<read-only token>"                                                  # Task 1 export (never commit)
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\export-cloudflare-config.ps1
-powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -Label before
+powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -Label before                          # and -Label after
+powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -Label before -Throttling devtools     # real slowdown; shows the layout shift
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\rum-summary.ps1
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\load-test.ps1              # needs k6
 ```
@@ -131,7 +132,52 @@ Facts to interpret ✍️:
 | JS transferred | ≤ 200 KB compressed | asset-size report / compression table |
 | `/api/status` p95 TTFB | ≤ 500 ms | k6 `ttfb_api` |
 
-- **Lighthouse:** `lh-before.json`, `lh-after.json`, delta table. *Candidate improvement:* the "Next up" box appears after the page renders and pushes the program down (a layout shift). Measure it first, then decide.
+### Lighthouse (facts)
+
+Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop with `scripts/lighthouse.ps1` against https://reel.miniexhibit.app/. Each row is 3 runs. The run with the median LCP is kept as the `.json` without a run number, and every run's numbers are in the `*-summary.txt` next to it. Two throttling modes:
+
+- **simulated** (Lighthouse's default): the page loads at full speed, and Lighthouse estimates slow-4G timings afterwards.
+- **devtools** (`-Throttling devtools`): Chrome really slows the network and CPU while the page loads.
+
+| Row | Deployed commit | Mode | Scores (runs 1/2/3) | LCP ms (runs) | CLS (runs) | Median run: score · LCP · CLS · TBT | File in `evidence/05-performance/` |
+|---|---|---|---|---|---|---|---|
+| before | `2411639` | simulated | 96 / 94 / 90 | 1539 / 2110 / 2964 | 0.011 / 0 / 0 | 94 · 2110 · 0 · 205 | `lh-before.json` |
+| before | `2411639` | devtools | 76 / 62 / 38 | 2817 / 5266 / 5419 | 0.146 / 0.147 / 0.146 | 62 · 5266 · 0.147 · 197 | `lh-before-devtools.json` |
+| after, first try (fix + preload) | `ed7f1e5` | simulated | 86 / 92 / 90 | 3062 / 2715 / 2913 | 0.011 / 0 / 0 | 90 · 2913 · 0 · 159 | `after-with-preload-ed7f1e5/lh-after.json` |
+| after, first try (fix + preload) | `ed7f1e5` | devtools | 88 / 80 / 61 | 2909 / 2805 / 4976 | 0.021 / 0.021 / 0.021 | 88 · 2909 · 0.021 · 150 | `after-with-preload-ed7f1e5/lh-after-devtools.json` |
+| **after (final)** | `c1dc15c` | simulated | 88 / 93 / 92 | 2642 / 2166 / 2470 | 0.021 / 0 / 0.019 | 92 · 2470 · 0.019 · 190 | `lh-after.json` |
+| **after (final)** | `c1dc15c` | devtools | 82 / 69 / 83 | 2967 / 3785 / 2725 | 0.021 / 0.021 / 0.021 | 82 · 2967 · 0.021 · 334 | `lh-after-devtools.json` |
+
+**Delta, before → after (final), median runs:**
+
+| Metric | Budget | simulated | devtools |
+|---|---|---|---|
+| CLS | ≤ 0.1 | 0 → 0.019 | **0.147 → 0.021** (all 3 runs 0.146–0.147 before, 0.021 after) |
+| LCP | ≤ 2.5 s | 2110 → 2470 ms (runs: 1539–2964 before, 2166–2642 after) | 5266 → 2967 ms (runs: 2817–5419 before, 2725–3785 after) |
+| Performance score | — | 94 → 92 | 62 → 82 |
+| TBT | — | 205 → 190 ms | 197 → 334 ms |
+
+**The improvement (commit `ed7f1e5`, "reserve space so late data no longer shifts the layout"):**
+- The Now/Next strip draws its final box at once: two columns, at most 3 single-line rows each, extra rooms collapse into "And N more". Before, it rendered nothing until `/api/status` answered.
+- The program filters wait for `/api/meta` instead of drawing with an empty Day list that grows when it arrives.
+- The Live badge reserves the width of its longest label. On narrow screens the masthead is a grid, so the badge can't re-wrap the title.
+
+**What Lighthouse attributed the shifts to** (its `layout-shifts` audit, the same in all 3 runs of each row):
+- before, devtools: **0.105–0.106 on `div.catalog-layout`** (no cause listed), 0.021 on `div.catalog-layout` ("Web font loaded"), 0.020 on `section.results`.
+- after (final), devtools: **only 0.021 on `div.catalog-layout`, cause "Web font loaded"**.
+- after (final), simulated: 0.021 (`div.catalog-layout`) and 0.019 (`div.loading`), both "Web font loaded". Before, simulated runs showed 0.011 / 0 / 0, i.e. the 0.106 shift never appeared in simulated mode, although it appeared in every devtools run of the same deployment that day.
+
+**Other facts:**
+- The LCP element was `<p class="lede">` (the intro sentence under "Program") in every run, before and after. In every run the observed LCP equalled the observed FCP.
+- Both after rows serve the same JavaScript file (`index-B90xKGRO.js`); `c1dc15c` only removed one line from `index.html`. In the final simulated runs, the observed (unthrottled) load was slower on the network than in the `ed7f1e5` runs half an hour earlier: document response 228–563 ms vs 118 ms, and the JS download 0.33–0.92 s vs 0.13 s for the same 112 KB file. CPU work was similar (boot-up 462–538 ms vs 512 ms).
+- **The preload episode:** `ed7f1e5` also added `<link rel="preload" href="/api/meta">`. Its simulated LCP came out 415–484 ms later than FCP in all 3 runs (median LCP 2913 ms, over budget), so the preload was tested on a local build: simulated LCP median 3613 ms with it, 3231 ms without, and no difference under devtools throttling. It was removed in `c1dc15c`. Details: `after-with-preload-ed7f1e5/NOTES.md`. (That A/B ran in the AI assistant's workspace, not on my laptop; the production rows above are the comparison I rely on.)
+
+**Interpretation ✍️** (your words; facts above):
+1. Did the improvement work? Which number shows it, and why is it the devtools row and not the simulated one?
+2. Why could simulated mode not see a shift that every devtools run saw? (Hint: when does the data arrive relative to the first paint in each mode?)
+3. LCP and the score moved in both directions between rows. Is that the change or noise? Use the run ranges and the network facts, not just the medians.
+4. What is left: the 0.021 font shift. What would you try next (for example a fallback font with matching metrics, or `font-display: optional`), and what would it cost?
+
 - **RUM pilot:** `rum-summary.json` from `/api/vitals/summary?since=<start of the pilot window>` (`rum-summary.ps1 -Since …`). Lab traffic is kept out: `web/src/lib/rum.ts` sends nothing from Lighthouse, headless Chrome, WebDriver-driven browsers or the Claude desktop browser pane the AI assistant used to check the site (`isAutomated`, tested in `web/test/rum.test.ts`). Page views from before the window (testing while building) are excluded by `since`. Report desktop and mobile separately with `n`, and say that a p75 from about 6 samples is unstable. Write the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
 - **k6:** `k6-summary.txt`. The profile is the course file, unmodified (sha256 recorded). It ran against **my own production** because ReelSchedule has no separate staging yet.
 
@@ -140,4 +186,8 @@ To be filled after those captures.
 
 ## Challenged AI claim ✍️
 
-Candidate (verify it yourself before using it): the AI-written README says the HTML shell is "revalidated every time (cheap 304 via ETag)". Through Cloudflare, the shell arrives **without an ETag** (observed 2026-11-17: `etag: null`, `content-encoding: zstd`), so a browser revalidation downloads the whole shell. Evidence to capture: `curl.exe -sSI https://reel.miniexhibit.app/` (no ETag) vs `curl.exe -sSI https://reelschedule-api-arpita.onrender.com/` (ETag present). Then say what you changed or accepted.
+Pick one candidate (or your own), verify it yourself, and write it up in your own words.
+
+Candidate A, measured on 2026-11-18: the AI assistant added `<link rel="preload" href="/api/meta">` to `ed7f1e5` with the claim that starting the metadata request "while the JavaScript downloads" would help the page load. Lighthouse on production said otherwise: simulated median LCP went to 2913 ms (budget 2.5 s), with LCP 415–484 ms after FCP in every run. A with/without test showed the preload cost simulated LCP and saved nothing under real throttling, and the code shows why: the page already starts all its queries at once. Removed in `c1dc15c`. Evidence: the Lighthouse table above and `evidence/05-performance/after-with-preload-ed7f1e5/NOTES.md`.
+
+Candidate B: the AI-written README says the HTML shell is "revalidated every time (cheap 304 via ETag)". Through Cloudflare, the shell arrives **without an ETag** (observed 2026-11-17: `etag: null`, `content-encoding: zstd`), so a browser revalidation downloads the whole shell. Evidence to capture: `curl.exe -sSI https://reel.miniexhibit.app/` (no ETag) vs `curl.exe -sSI https://reelschedule-api-arpita.onrender.com/` (ETag present). Then say what you changed or accepted.

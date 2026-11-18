@@ -1,0 +1,5 @@
+﻿# Lighthouse 12.8.2, mobile preset, throttling=simulate, performance only: https://reel.miniexhibit.app/
+run 1: score=88  LCP=2642 ms  CLS=0.021  TBT=201 ms  FCP=2642 ms  SI=3605 ms  (2026-11-18T21:07:15.997Z)
+run 2: score=93  LCP=2166 ms  CLS=0  TBT=205 ms  FCP=2166 ms  SI=2341 ms  (2026-11-18T21:07:40.724Z)
+run 3: score=92  LCP=2470 ms  CLS=0.019  TBT=190 ms  FCP=2320 ms  SI=2320 ms  (2026-11-18T21:08:03.231Z)
+median by LCP: run 3 -> lh-after.json

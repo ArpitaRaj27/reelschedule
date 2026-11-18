@@ -10,7 +10,7 @@ Captured 2026-11-18 20:43–20:46 UTC with `scripts/lighthouse.ps1 -Label after`
 
 What made these runs a separate record instead of the final "after":
 
-- Simulated LCP came out 415–485 ms later than simulated FCP in all three runs (before the change, LCP equalled FCP in 2 of 3 runs),
+- Simulated LCP came out 415–484 ms later than simulated FCP in all three runs (before the change, LCP equalled FCP in 2 of 3 runs),
   and the simulated median LCP went from 2110 ms (before) to 2913 ms, over the 2.5 s budget.
 - The times Lighthouse actually observed on the unthrottled load did not get worse: observed FCP = LCP = 917 / 717 / 696 ms
   (before: 591 / 939 / 506 ms). So the increase came from the simulation, not the page.
