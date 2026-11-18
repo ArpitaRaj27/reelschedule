@@ -1,0 +1,30 @@
+﻿# HW5 Task 6 asset-size report, 2026-11-18T21:41:13Z
+production /healthz: {"ok":true,"db":"up","commit":"c1dc15cd9622247cc936cfe5e09796578e783c10","build":"reelschedule-api-arpita","auth":"disabled","sseClients":1}
+HTML at https://reel.miniexhibit.app/ references: /assets/index-8QA3ZZYN.css, /assets/index-B90xKGRO.js
+
+## Bytes on the wire from production (curl, no decoding)
+/assets/index-8QA3ZZYN.css     asked=br       got=br    status=200 bytes=    4701 cf-cache-status=HIT
+/assets/index-8QA3ZZYN.css     asked=gzip     got=gzip  status=200 bytes=    4569 cf-cache-status=HIT
+/assets/index-8QA3ZZYN.css     asked=identity got=none  status=200 bytes=   17097 cf-cache-status=HIT
+/assets/index-B90xKGRO.js      asked=br       got=br    status=200 bytes=  110898 cf-cache-status=MISS
+/assets/index-B90xKGRO.js      asked=gzip     got=gzip  status=200 bytes=  108234 cf-cache-status=MISS
+/assets/index-B90xKGRO.js      asked=identity got=none  status=200 bytes=  353474 cf-cache-status=MISS
+
+## Source map
+/assets/index-B90xKGRO.js is 353474 bytes uncompressed; its last line names a source map: index-B90xKGRO.js.map
+GET https://reel.miniexhibit.app/assets/index-B90xKGRO.js.map (identity) -> status 200, content-type application/json; charset=utf-8, 1911676 bytes, cf-cache-status HIT
+GET https://reel.miniexhibit.app/assets/index-B90xKGRO.js.map (br)       -> 462203 bytes on the wire, content-encoding br
+
+## What /assets/index-B90xKGRO.js is made of (minified bytes, by npm package)
+# index-B90xKGRO.js: 353,474 bytes minified, 55 source files
+| Package / code | Bytes (minified) | Share |
+|---|---:|---:|
+| react-dom | 206,948 | 58.5% |
+| app code (web/src) | 48,226 | 13.6% |
+| react-router | 38,268 | 10.8% |
+| @tanstack/query-core | 32,878 | 9.3% |
+| web-vitals | 11,443 | 3.2% |
+| react | 8,154 | 2.3% |
+| scheduler | 3,485 | 1.0% |
+| @tanstack/react-query | 2,261 | 0.6% |
+| unmapped (bundler glue, comments) | 1,811 | 0.5% |

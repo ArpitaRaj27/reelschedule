@@ -20,7 +20,7 @@
 | 3 | Four cache states | `evidence/03-headers/{miss,hit,304,purge-before,purge-after}.txt` | capture: `capture-cache-states.ps1` |
 | 4 | Compression | `evidence/04-compression.txt` | capture: `compression.ps1` |
 | 5 | Budget, Lighthouse before/after, RUM pilot, k6 | `evidence/05-performance/` | `lighthouse.ps1`, `rum-summary.ps1`, `load-test.ps1` |
-| 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | TODO |
+| 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
 | 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/` | TODO (the recording must be you) |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/` | TODO |
 | 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/` | TODO |
@@ -39,6 +39,7 @@ powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -La
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -Label before -Throttling devtools     # real slowdown; shows the layout shift
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\rum-summary.ps1
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\load-test.ps1              # needs k6
+powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\asset-size.ps1             # Task 6
 ```
 
 Automated checks of the same policy (run in CI on every push): `npm test` → `api/test/delivery.test.ts` (headers per content class, app cache MISS → HIT → write → MISS, `/api/now`, RUM collector).
@@ -178,10 +179,70 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 3. LCP and the score moved in both directions between rows. Is that the change or noise? Use the run ranges and the network facts, not just the medians.
 4. What is left: the 0.021 font shift. What would you try next (for example a fallback font with matching metrics, or `font-display: optional`), and what would it cost?
 
-- **RUM pilot:** `rum-summary.json` from `/api/vitals/summary?since=<start of the pilot window>` (`rum-summary.ps1 -Since …`). Lab traffic is kept out: `web/src/lib/rum.ts` sends nothing from Lighthouse, headless Chrome, WebDriver-driven browsers or the Claude desktop browser pane the AI assistant used to check the site (`isAutomated`, tested in `web/test/rum.test.ts`). Page views from before the window (testing while building) are excluded by `since`. Report desktop and mobile separately with `n`, and say that a p75 from about 6 samples is unstable. Write the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
+### RUM pilot (facts)
+
+`evidence/05-performance/rum-summary.json`, saved 2026-11-18 21:36:22 UTC by `rum-summary.ps1 -Since 2026-11-18T21:20:00Z`. The window opens after `c1dc15c` went live (21:06 UTC), so every page view in it saw the final version. Earlier page views (testing while building) are excluded by `since`. Lab traffic never reaches the collector: `web/src/lib/rum.ts` sends nothing from Lighthouse, headless Chrome, WebDriver-driven browsers or the desktop-app browser pane the AI assistant used (`isAutomated`, tested in `web/test/rum.test.ts`).
+
+| Cohort | Device | Page views | LCP p75 | INP p75 | CLS p75 | FCP p75 | TTFB p75 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| desktop | Windows laptop, Chrome (network: ✍️ fill in) | 3 | 700 ms | 72 ms | 0.001 | 700 ms | 301 ms (n=3) |
+| mobile | iPhone, Chrome, Wi-Fi | 4 | 153 ms | 48 ms | **no data** | 153 ms | 130 ms (**n=1**) |
+
+- 7 page views in total, by one person (me), on one home network.
+- The iPhone sent **no CLS at all**. Every browser on iOS, Chrome included, runs on Apple's WebKit engine, and WebKit does not implement the Layout Instability API that CLS is measured with. LCP and INP did arrive from the phone.
+- The phone reported TTFB for 1 of its 4 page views; FCP, LCP and INP for all 4.
+- Budget check: LCP, INP and CLS p75 are within budget in every cohort that reported them.
+
+**Interpretation ✍️:** how much does a p75 of 3–4 samples tell you? What does the missing iPhone CLS mean for a festival audience that is mostly on phones? Why might the phone report TTFB once and LCP so low (hint: how does web-vitals treat a page restored from the back/forward cache)? Include the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
+
 - **k6:** `k6-summary.txt`. The profile is the course file, unmodified (sha256 recorded). It ran against **my own production** because ReelSchedule has no separate staging yet.
 
-## Tasks 6–9 — TODO
+## Task 6 — Bundle size
+
+**The production build's size report** is Render's build log for the live commit `c1dc15c` (`evidence/06-bundle/render-build-log-c1dc15c.txt`; Vite's table, sizes before compression):
+
+| Emitted asset | Size | Vite's gzip estimate |
+|---|---:|---:|
+| `index.html` | 0.66 kB | 0.39 kB |
+| 5 web-font files (`.woff2`, two families) | 9.78–46.75 kB each | — |
+| `index-8QA3ZZYN.css` | 17.09 kB | 4.59 kB |
+| **`index-B90xKGRO.js` (largest JS asset)** | **353.47 kB** | 109.40 kB |
+| `index-B90xKGRO.js.map` | 1,911.55 kB | — |
+
+**What production actually sends** (`evidence/06-bundle/asset-size-report-c1dc15c.txt`, `scripts/asset-size.ps1`, 2026-11-18 21:41 UTC; curl, no decoding):
+
+| File | br | gzip | identity |
+|---|---:|---:|---:|
+| `index-B90xKGRO.js` | **110,898** | 108,234 | 353,474 |
+| `index-8QA3ZZYN.css` | 4,701 | 4,569 | 17,097 |
+| `index-B90xKGRO.js.map` | 462,203 | — | 1,911,676 (status 200, `cf-cache-status: HIT`) |
+
+- **Largest JS vs budget:** 110,898 bytes with Brotli (what Chrome negotiates) against the 200 KB compressed budget: **55%** of it.
+- Brotli came out larger than gzip again (+2,664 bytes), as in Task 4.
+- The JS file's last line is `//# sourceMappingURL=index-B90xKGRO.js.map`, and that map was publicly downloadable: 1.9 MB of the original TypeScript source, comments included.
+
+**What the largest JS file is made of** (minified bytes, from the map; `scripts/bundle-composition.mjs`, cross-checked against `source-map-explorer` within 16 bytes per group):
+
+| Package / code | Bytes | Share |
+|---|---:|---:|
+| react-dom | 206,948 | 58.5% |
+| app code (`web/src`) | 48,226 | 13.6% |
+| react-router | 38,268 | 10.8% |
+| @tanstack/query-core | 32,878 | 9.3% |
+| web-vitals | 11,443 | 3.2% |
+| react | 8,154 | 2.3% |
+| scheduler | 3,485 | 1.0% |
+| @tanstack/react-query | 2,261 | 0.6% |
+| unmapped (bundler glue) | 1,811 | 0.5% |
+
+**Decision: reduce — the production build no longer emits a source map.** `web/vite.config.ts`: `sourcemap: true` → `false`. Facts about the change:
+- Visitors' bytes barely move: the JS loses only its 43-byte `sourceMappingURL` line (353,474 → 353,431 bytes in a local build). The map was never part of a normal page load; browsers fetch it only when DevTools is open.
+- **The JS file name did not change** (`index-B90xKGRO.js` in both builds): Rollup computes the hash before it appends the source-map comment. So for once a hashed asset changed under the same name. Cloudflare had both the JS and the map cached as `immutable`, so both URLs are purged once after the deploy. This is the one exception to "never purged" in the cache-policy matrix.
+- A bundle analysis is still possible: `npm run build -w web -- --sourcemap hidden` writes a map locally that the JS does not link to.
+
+**Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, and does that matter if the GitHub repository is public? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
+
+## Tasks 7–9 — TODO
 To be filled after those captures.
 
 ## Challenged AI claim ✍️
