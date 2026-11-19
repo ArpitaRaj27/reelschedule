@@ -115,6 +115,17 @@ describe("program page", () => {
     expect(screen.getAllByRole("button", { name: "Clear filters" }).length).toBeGreaterThan(0);
   });
 
+  it("keeps keyboard focus when Clear filters removes itself: focus moves to the first filter", async () => {
+    renderCatalog({ "GET /api/screenings": () => json({ items: [], count: 0, page: 1, pageSize: 25 }) }, "/?q=zzz");
+    const user = userEvent.setup();
+    await screen.findByText("No screenings match these filters.");
+    const buttons = screen.getAllByRole("button", { name: "Clear filters" });
+    buttons.at(-1)!.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Film title")).toHaveFocus(); // not <body>
+  });
+
   it("shows what went wrong, a retry button and the request id when the API fails", async () => {
     renderCatalog({ "GET /api/screenings": () => json({ error: { code: "internal_error", message: "Unexpected server error", requestId: "req-9" } }, 500) });
     const alert = await screen.findByRole("alert");

@@ -79,7 +79,7 @@ describe("programmer console", () => {
     await fillForm("19:50");
     expect(await screen.findByText("Overlaps with:")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "The Quiet Harbor" }).closest("li")).toHaveTextContent("room busy until 20:00");
-    expect(screen.getByRole("img", { name: /Neon Orchard \(new, overlaps\), 19:50 to 21:22, room free at 21:37/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /19:50 Neon Orchard \(new, overlaps\), until 21:22, room free at 21:37/ })).toBeInTheDocument();
     const preview = mock.calls.find((c) => c.path === "/api/screenings/preview")!;
     expect(JSON.parse(String(preview.init.body))).toEqual({ filmId: "film-orchard", roomId: "room-main", startsAt: "2026-11-20T19:50:00-06:00" });
     expect(new Headers(preview.init.headers).get("authorization")).toBe("Bearer dev-token-for-tests");

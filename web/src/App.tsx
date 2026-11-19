@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { useCallback, useState } from "react";
 import { BrowserRouter, Link, NavLink, Route, Routes } from "react-router";
 import { AnnouncerProvider, useAnnounce } from "./components/Announcer";
+import { PageFocus } from "./components/PageFocus";
 import { ApiError } from "./lib/api";
 import { AuthProvider, useAuth } from "./lib/auth";
 import { useLiveUpdates, type LiveStatus } from "./lib/live";
@@ -81,7 +82,9 @@ function Shell() {
       </a>
       <header className="masthead">
         <div className="masthead-inner">
-          <Link to="/" className="wordmark" aria-label="ReelSchedule, program home">
+          {/* No aria-label: the link's name is its visible text ("ReelSchedule Lakeshore Film Festival"), so a voice
+              user can say what they see (WCAG 2.5.3 Label in Name; axe label-content-name-mismatch, HW5 Task 7). */}
+          <Link to="/" className="wordmark">
             <span className="wordmark-name">ReelSchedule</span>
             <span className="wordmark-festival">{meta.festivalName}</span>
           </Link>
@@ -104,6 +107,7 @@ function Shell() {
           </div>
         </div>
       </header>
+      <PageFocus />
       <main id="main" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<CatalogPage />} />

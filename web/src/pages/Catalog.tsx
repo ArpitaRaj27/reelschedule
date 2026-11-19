@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { NowNext } from "../components/NowNext";
 import { Empty, ErrorNotice, Loading } from "../components/States";
@@ -55,9 +55,15 @@ export function CatalogPage() {
   useEffect(() => {
     if (qParam !== debounced) setText(qParam);
   }, [qParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Both "Clear filters" buttons disappear once nothing is filtered. Without this, the button a keyboard user
+  // just pressed is removed under them, focus falls to <body>, and their next Tab lands in the results list,
+  // past every filter (HW5 Task 7, a defect axe cannot see). Focus goes to the first filter instead; the
+  // polite "N screenings" line still announces the new result count.
+  const searchRef = useRef<HTMLInputElement>(null);
   const clear = () => {
     setText("");
     setParams({});
+    searchRef.current?.focus();
   };
 
   const byDay = useMemo(() => groupByDay(list.data?.items ?? [], meta.timezone), [list.data, meta.timezone]);
@@ -79,7 +85,7 @@ export function CatalogPage() {
           <form className="filters" role="search" aria-label="Filter screenings" onSubmit={(e) => e.preventDefault()}>
             <div className="field">
               <label htmlFor={ids.search}>Film title</label>
-              <input id={ids.search} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search titles" autoComplete="off" />
+              <input ref={searchRef} id={ids.search} type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Search titles" autoComplete="off" />
             </div>
 
             <fieldset className="field days">

@@ -113,15 +113,21 @@ function Block({ item, pct, mins, tz }: { item: TimelineItem; pct: (m: number) =
   const from = clockTime(item.startsAt, tz);
   const to = clockTime(item.endsAt, tz);
   const free = clockTime(item.occupiedUntil, tz);
+  // The name starts with exactly what the block shows ("18:00 The Quiet Harbor"), then adds what only the
+  // shape shows. A voice-control user says the visible words, so they must be in the name, in that order
+  // (WCAG 2.5.3 Label in Name; axe label-content-name-mismatch, HW5 Task 7).
+  const kindNote = item.kind === "proposed" ? " (new)" : item.kind === "conflict" ? " (new, overlaps)" : "";
   const description =
     item.kind === "canceled"
-      ? `${item.title}, ${from} to ${to}, canceled`
-      : `${item.title}${item.kind === "proposed" ? " (new)" : ""}${item.kind === "conflict" ? " (new, overlaps)" : ""}, ${from} to ${to}, room free at ${free}`;
+      ? `${from} ${item.title}, until ${to}, canceled`
+      : `${from} ${item.title}${kindNote}, until ${to}, room free at ${free}`;
 
   const inner = (
     <>
       <span className="tl-film" style={{ flexBasis: `${filmShare}%` }}>
-        <span className="tl-time">{from}</span>
+        {/* The space keeps the text "18:00 The Quiet Harbor" rather than "18:00The…" for anything that reads
+            the DOM (axe, voice control). .tl-film is a flex column, so a whitespace-only text node is not drawn. */}
+        <span className="tl-time">{from}</span>{" "}
         <span className="tl-title">{item.title}</span>
       </span>
       {item.kind !== "canceled" && <span className="tl-buffer" aria-hidden="true" />}

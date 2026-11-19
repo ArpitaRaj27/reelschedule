@@ -247,7 +247,9 @@ main {
   /* The footer starts below the fold, so content arriving after first paint never pushes a visible footer. */
   min-height: 100vh;
 }
-main:focus {
+main:focus,
+h1[tabindex="-1"]:focus {
+  /* Focus lands here only by script (skip link, page change); these are not controls, so no ring. */
   outline: none;
 }
 
