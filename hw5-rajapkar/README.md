@@ -15,7 +15,7 @@
 
 | # | Requirement | Evidence | Status |
 |---|---|---|---|
-| 1 | CDN in front, TLS intact, vendor headers, config exported | `evidence/01-edge-proof.txt`, `evidence/01-cdn-config/` | capture: `capture-cache-states.ps1`, `export-cloudflare-config.ps1` |
+| 1 | CDN in front, TLS intact, vendor headers, config exported | `evidence/01-edge-proof.txt`, `evidence/01-cdn-config/` | captured (export 2026-11-19) |
 | 2 | Cache-policy matrix + one app cache (MISS → HIT → MISS) | [matrix below](#cache-policy-matrix), `evidence/02-app-cache-miss-hit.txt` | capture: `capture-cache-states.ps1` |
 | 3 | Four cache states | `evidence/03-headers/{miss,hit,304,purge-before,purge-after}.txt` | capture: `capture-cache-states.ps1` |
 | 4 | Compression | `evidence/04-compression.txt` | capture: `compression.ps1` |
@@ -47,7 +47,8 @@ Automated checks of the same policy (run in CI on every push): `npm test` → `a
 ## Task 1 — CDN in front of the domain
 
 - **DNS:** `miniexhibit.app` moved from Porkbun's nameservers to Cloudflare's (`oswald.ns.cloudflare.com`, `tina.ns.cloudflare.com`). `reel` is a **proxied** CNAME to `reelschedule-api-arpita.onrender.com`. It was DNS-only until Render issued its certificate for `reel.miniexhibit.app`, then switched to proxied, as Render's Cloudflare guide requires. The course TXT record `CSC436-2026FALL-…` was carried over.
-- **TLS:** Cloudflare SSL/TLS mode **Full (strict)**. Browser → Cloudflare uses Cloudflare's edge certificate; Cloudflare → Render uses Render's certificate for `reel.miniexhibit.app`, and Cloudflare verifies it. `.app` is HSTS-preloaded, so HTTP is never an option for browsers.
+- **TLS:** Cloudflare SSL/TLS mode **Full (strict)**. Browser → Cloudflare uses Cloudflare's edge certificate; Cloudflare → Render uses Render's certificate for `reel.miniexhibit.app`, and Cloudflare verifies it. `.app` is HSTS-preloaded, so HTTP is never an option for browsers. Since 2026-11-19, **Always Use HTTPS** is on (a 301 to `https://` for clients that do send HTTP, such as curl) and the **minimum TLS version is 1.2** (was 1.0).
+- **Exported configuration:** `evidence/01-cdn-config/`, exported 2026-11-19 from Cloudflare's API: `dns-zone.txt` (Cloudflare's own BIND export of all records), `cache-rules.json` (the Cache Rules ruleset), `zone-settings.json` (10 settings caching and TLS depend on). The export is what showed Always Use HTTPS off and TLS 1.0 allowed; `zone-settings-before-2026-11-19.json` is the state before the change, and `01-cdn-config/README.md` records how it was exported and what changed.
 - **Eligibility (decision a):** Cache Rule *"reel: HTML + public API eligible, respect origin TTL"*:
   ```
   (http.host eq "reel.miniexhibit.app"

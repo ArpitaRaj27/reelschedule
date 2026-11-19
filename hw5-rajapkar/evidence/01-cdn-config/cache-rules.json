@@ -1,0 +1,27 @@
+{
+  "description": "",
+  "id": "0c92df663dd64114a0b2a09201699376",
+  "kind": "zone",
+  "last_updated": "2026-11-17T19:23:43.295411Z",
+  "name": "default",
+  "phase": "http_request_cache_settings",
+  "rules": [
+    {
+      "action": "set_cache_settings",
+      "action_parameters": {
+        "cache": true,
+        "edge_ttl": {
+          "mode": "bypass_by_default"
+        }
+      },
+      "description": "reel: HTML + public API eligible, respect origin TTL",
+      "enabled": true,
+      "expression": "(http.host eq \"reel.miniexhibit.app\" and not starts_with(http.request.uri.path, \"/api/events\") and not starts_with(http.request.uri.path, \"/api/vitals\") and not starts_with(http.request.uri.path, \"/healthz\"))",
+      "id": "0b8991a3a9044d4a8d2ba20573bb3c6e",
+      "last_updated": "2026-11-17T19:23:43.295411Z",
+      "ref": "0b8991a3a9044d4a8d2ba20573bb3c6e",
+      "version": "1"
+    }
+  ],
+  "version": "1"
+}

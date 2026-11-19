@@ -1,0 +1,11 @@
+HTTP/1.1 301 Moved Permanently
+Date: Thu, 19 Nov 2026 22:58:51 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+Location: https://reel.miniexhibit.app/
+Report-To: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=fUxmKPYDiJTQr1hMDy2ZTq6sPSE00eDqKhNiDSMQKkZKmsHW%2B2EKdaVv3xmQF8BydT%2B6hF0RnBFtIyI0jzG2pBOBETxOkB6nUjUFcuaztRGcNwJ6vFjP9IIspwnhkguIXt0QuTZCAEf%2BdsOUzTzpVMvkjg%3D%3D"}]}
+Nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+Server: cloudflare
+CF-RAY: a5d2d26f2acccf71-CMH
+alt-svc: h3=":443"; ma=86400
+

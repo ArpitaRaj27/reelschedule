@@ -1,0 +1,52 @@
+[
+  {
+    "id": "always_online",
+    "modified_on": null,
+    "value": "off"
+  },
+  {
+    "id": "always_use_https",
+    "modified_on": "2026-11-19T22:54:48.700675Z",
+    "value": "on"
+  },
+  {
+    "id": "automatic_https_rewrites",
+    "modified_on": null,
+    "value": "on"
+  },
+  {
+    "id": "brotli",
+    "modified_on": null,
+    "value": "on"
+  },
+  {
+    "id": "browser_cache_ttl",
+    "modified_on": "2026-11-18T17:55:15.154142Z",
+    "value": 0
+  },
+  {
+    "id": "cache_level",
+    "modified_on": null,
+    "value": "aggressive"
+  },
+  {
+    "id": "development_mode",
+    "modified_on": null,
+    "value": "off"
+  },
+  {
+    "id": "http3",
+    "modified_on": null,
+    "value": "on"
+  },
+  {
+    "id": "min_tls_version",
+    "modified_on": null,
+    "value": "1.2"
+  },
+  {
+    "id": "ssl",
+    "modified_on": "2026-11-17T19:08:41.381776Z",
+    "value": "strict"
+  }
+]

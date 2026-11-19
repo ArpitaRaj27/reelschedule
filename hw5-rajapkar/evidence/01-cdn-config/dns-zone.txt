@@ -1,0 +1,43 @@
+;;
+;; Domain:     miniexhibit.app.
+;; Exported:   2026-11-19 22:51:56
+;;
+;; This file is intended for use for informational and archival
+;; purposes ONLY and MUST be edited before use on a production
+;; DNS server.  In particular, you must:
+;;   -- update the SOA record with the correct authoritative name server
+;;   -- update the SOA record with the contact e-mail address information
+;;   -- update the NS record(s) with the authoritative name servers for this domain.
+;;
+;; For further information, please consult the BIND documentation
+;; located on the following website:
+;;
+;; http://www.isc.org/
+;;
+;; And RFC 1035:
+;;
+;; http://www.ietf.org/rfc/rfc1035.txt
+;;
+;; Please note that we do NOT offer technical support for any use
+;; of this zone data, the BIND name server, or any other third-party
+;; DNS software.
+;;
+;; Use at your own risk.
+;; SOA Record
+miniexhibit.app	3600	IN	SOA	oswald.ns.cloudflare.com. dns.cloudflare.com. 2054679531 10000 2400 604800 3600
+
+;; NS Records
+miniexhibit.app.	86400	IN	NS	oswald.ns.cloudflare.com.
+miniexhibit.app.	86400	IN	NS	tina.ns.cloudflare.com.
+
+;; A Records
+miniexhibit.app.	1	IN	A	207.207.210.107 ; cf_tags=cf-proxied:true
+miniexhibit.app.	1	IN	A	207.207.210.229 ; cf_tags=cf-proxied:true
+
+;; CNAME Records
+*.miniexhibit.app.	1	IN	CNAME	pixie.porkbun.com. ; cf_tags=cf-proxied:true
+reel.miniexhibit.app.	1	IN	CNAME	reelschedule-api-arpita.onrender.com. ; cf_tags=cf-proxied:true
+www.miniexhibit.app.	1	IN	CNAME	pixie.porkbun.com. ; cf_tags=cf-proxied:true
+
+;; TXT Records
+miniexhibit.app.	1	IN	TXT	"CSC436-2026FALL-8D4F71A9C2B63E55"

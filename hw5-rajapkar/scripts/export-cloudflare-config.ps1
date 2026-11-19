@@ -31,7 +31,7 @@ $rules = Invoke-RestMethod -Headers $headers -Uri "$api/zones/$zoneId/rulesets/p
 $rules.result | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 (Join-Path $out "cache-rules.json")
 
 # The settings the cache and TLS behaviour depend on
-$wanted = "ssl", "always_use_https", "min_tls_version", "brotli", "browser_cache_ttl", "cache_level", "automatic_https_rewrites", "http3"
+$wanted = "ssl", "always_use_https", "min_tls_version", "brotli", "browser_cache_ttl", "cache_level", "automatic_https_rewrites", "http3", "development_mode", "always_online"
 $settings = (Invoke-RestMethod -Headers $headers -Uri "$api/zones/$zoneId/settings").result |
   Where-Object { $wanted -contains $_.id } | Select-Object id, value, modified_on
 $settings | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 (Join-Path $out "zone-settings.json")
