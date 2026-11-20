@@ -1,0 +1,38 @@
+# Production cache guard: the detection for cross-user cache disclosure (HW5 Task 8).
+# Every 3 hours, and on demand from the Actions tab (Run workflow), it sends requests carrying credentials for two
+# synthetic users to reel.miniexhibit.app and fails if Cloudflare stored or served any of those responses from cache,
+# or if the origin allowed it to. GitHub notifies about failed scheduled runs (by default the person who last changed
+# the schedule). See scripts/cache-guard.mjs.
+#
+# Cost: about 8 runs a day of well under a minute each, inside GitHub's free Actions minutes for a private repository.
+# CACHE_GUARD_TOKENS (optional repository secret, "tokenA,tokenB"): tokens of two synthetic test users, once sign-in is
+# switched on in production. Never a real person's token. Without it the check uses made-up tokens (the API answers 401).
+name: Cache guard (production)
+
+on:
+  schedule:
+    - cron: "23 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cache-guard
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Credentialed responses are never cached (reel.miniexhibit.app)
+        env:
+          CACHE_GUARD_TOKENS: ${{ secrets.CACHE_GUARD_TOKENS }}
+        run: node scripts/cache-guard.mjs https://reel.miniexhibit.app
