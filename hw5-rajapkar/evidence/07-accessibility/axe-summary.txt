@@ -1,0 +1,24 @@
+# axe scan of https://reel.miniexhibit.app
+started 2026-11-20T00:27:08.553Z
+axe-core 4.14.0, Chrome (channel chrome) 157.0.8103.51, viewport 1280x900
+rules: axe defaults (WCAG 2.0/2.1/2.2 A and AA, plus best practices)
+
+## program  (https://reel.miniexhibit.app/)
+violations: 0 rules {}; passes: 43; incomplete (needs a human): 0
+
+## program-no-results  (https://reel.miniexhibit.app/?q=zzz)
+violations: 0 rules {}; passes: 44; incomplete (needs a human): 0
+
+## program-filtered  (https://reel.miniexhibit.app/?date=2026-11-21&status=canceled)
+violations: 0 rules {}; passes: 44; incomplete (needs a human): 0
+
+## grid  (https://reel.miniexhibit.app/grid?date=2026-11-20)
+violations: 0 rules {}; passes: 41; incomplete (needs a human): 0
+
+## screening  (https://reel.miniexhibit.app/screenings/ee31adda-6fd3-4707-ab8d-461681fcbcaa)
+violations: 0 rules {}; passes: 41; incomplete (needs a human): 0
+
+## sign-in  (https://reel.miniexhibit.app/sign-in)
+violations: 0 rules {}; passes: 40; incomplete (needs a human): 0
+
+total violated rules across views: 0

@@ -21,7 +21,7 @@
 | 4 | Compression | `evidence/04-compression.txt` | capture: `compression.ps1` |
 | 5 | Budget, Lighthouse before/after, RUM pilot, k6 | `evidence/05-performance/` | `lighthouse.ps1`, `rum-summary.ps1`, `load-test.ps1` |
 | 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
-| 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/` | TODO (the recording must be you) |
+| 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/` | TODO |
 | 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/` | TODO |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
@@ -40,6 +40,8 @@ powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\lighthouse.ps1 -La
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\rum-summary.ps1
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\load-test.ps1              # needs k6
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\asset-size.ps1             # Task 6
+npm install --prefix hw5-rajapkar\scripts\a11y                                           # Task 7, once
+node hw5-rajapkar\scripts\a11y\axe-scan.mjs https://reel.miniexhibit.app                 # Task 7 ($env:A11Y_OUT = "<folder>" writes elsewhere)
 ```
 
 Automated checks of the same policy (run in CI on every push): `npm test` → `api/test/delivery.test.ts` (headers per content class, app cache MISS → HIT → write → MISS, `/api/now`, RUM collector).
@@ -274,7 +276,117 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 
 **Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, given that the repository is private? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
 
-## Tasks 7–9 — TODO
+## Task 7 — Accessibility
+
+**Scanner:** axe-core **4.14.0** (`@axe-core/playwright` 4.14.0, `playwright-core` 1.64.1) driving my own Google Chrome (157.0.8103.51), viewport 1280×900, axe's default rules (WCAG 2.0/2.1/2.2 A and AA plus best practices). Script: `scripts/a11y/axe-scan.mjs`. Every view's full axe result is saved as JSON next to a summary.
+
+| View | State | Why it is in the scan |
+|---|---|---|
+| `program` | the program page at rest, after its data loaded | the page with the labeled filters (Film title, Day, Room, Genre, Status) |
+| `program-no-results` | **stateful:** `zzz` typed into Film title | the empty state and its *Clear filters* button exist only in this state |
+| `program-filtered` | **stateful:** Day changed with Space on a radio, Status set to *Canceled only* | filter state carried in the URL |
+| `grid` | Rooms by day | the room timeline |
+| `screening` | one screening's page (the first program link) | a second timeline, with the current screening marked |
+| `sign-in` | the sign-in form | the only text-entry form a signed-out visitor can reach |
+
+**Before** — production on `39b13bb` (scan started 2026-11-20 00:07:50 UTC; `/healthz` showed `39b13bb` immediately before and after the scan). `evidence/07-accessibility/before-39b13bb/`:
+
+| View | Violations | Needs review |
+|---|---|---|
+| program | 1 rule, serious: `label-content-name-mismatch` (1 element: the wordmark) | 0 |
+| program-no-results | same, 1 element | 0 |
+| program-filtered | same, 1 element | 0 |
+| grid | same, **4 elements**: the wordmark and 3 timeline blocks | 1: `color-contrast`, 2 elements ("Free all day") |
+| screening | same, **3 elements**: the wordmark and 2 timeline blocks | 0 |
+| sign-in | same, 1 element | 0 |
+
+**What axe found, and the fix** (`9cd1ed3`): `label-content-name-mismatch` is WCAG 2.5.3 *Label in Name*. The visible text of a control must be part of its accessible name, because a voice-control user says what they see ("click The Quiet Harbor").
+- The wordmark link showed "ReelSchedule Lakeshore Film Festival" but had `aria-label="ReelSchedule, program home"`. The `aria-label` was removed, so the name is the visible text.
+- Each timeline block showed "18:00 The Quiet Harbor" but was named "The Quiet Harbor, 18:00 to 19:45, room free at 20:00". The name now starts with exactly the visible text ("18:00 The Quiet Harbor, until 19:45, room free at 20:00"). A missing space meant the DOM text was "18:00The Quiet Harbor", so axe still flagged it after the reorder; a `{" "}` between the two spans fixed that.
+- Test: `web/test/timeline.test.tsx` checks that the name starts with the block's visible text.
+
+**What axe could not decide:** `color-contrast` "needs review" on "Free all day", because the timeline draws its hour lines as a background gradient. Checked by hand (`5718625`):
+- "Free all day" is `--muted` #6c7686 on white: 4.59:1 (dark mode 5.16:1). But one hour line ran through the text, and where they cross the ratio is 3.03:1. The label now has its own solid background.
+- The same check found a worse case that no scan reached: **canceled screenings** on a timeline. The block was faded to 75% opacity with gray text over gray stripes: **2.90:1** on white and **2.14:1** on a stripe (needs 4.5:1). The text is now `--ink-soft` at full opacity: 7.63:1 and 5.03:1 (dark mode 7.57 / 5.48). Canceled still shows as stripes, a gray edge, a line-through and no turnaround hatching.
+- Why the scan missed it: the seed data and the live site have **no canceled screening**, so no canceled block was ever on screen. Even with one, axe only rates text over a gradient "needs review". Measured from screenshot pixels in Chrome on a local build with one screening canceled (light and dark mode).
+
+**After** — production on `adcb658` (scan started 2026-11-20 00:27:08 UTC; `/healthz` showed `adcb658` at 00:24 UTC and right after the scan). `evidence/07-accessibility/axe-*.json`, `axe-summary.txt`:
+
+| View | Violations | Needs review | Passes (before → after) |
+|---|---|---|---|
+| program | 0 | 0 | 43 → 43 |
+| program-no-results | 0 | 0 | 44 → 44 |
+| program-filtered | 0 | 0 | 44 → 44 |
+| grid | 0 | **0** (was 1) | 40 → 41 |
+| screening | 0 | 0 | 40 → 41 |
+| sign-in | 0 | 0 | 40 → 40 |
+
+On the grid, "Free all day" now has a solid background, so axe can measure it and it passes.
+
+### Keyboard walkthrough
+
+Recording: `evidence/07-accessibility/keyboard-walkthrough.mp4` — **TODO** (recorded by me on production after `adcb658`, keyboard only, narrated). It follows the lab's five-step pass:
+
+| Step | What I do on ReelSchedule |
+|---|---|
+| 1. Tab from the top | skip link → masthead → Now showing / Next up → filters → the program list, in visual order |
+| 2. Can you see where you are? | the 3px amber focus ring on every stop |
+| 3. Enter and Space | skip link, Day radios (arrow keys), selects, *Clear filters*, a screening link |
+| 4. Focus after something opens | ReelSchedule has no dialog; the equivalent is a page change: where focus goes after opening a screening, and after *Clear filters* |
+| 5. The error message | the sign-in form, with a token that is too short and one the server rejects |
+
+### Defects the scanner missed (symptom → mechanism → who → fix)
+
+axe reported none of these. The before scan's only violation was `label-content-name-mismatch`, and the after scan shows 0 with all four of these already fixed or, for #4, never on screen.
+
+**1. *Clear filters* drops keyboard focus** (`9cd1ed3`)
+- Symptom: after *Clear filters*, focus disappears; the next Tab lands on "See rooms side by side", past every filter.
+- Mechanism: both *Clear filters* buttons are rendered only while a filter is set. Pressing one clears the filters, React removes the focused button, and the browser moves focus to `<body>`.
+- Who ✍️:
+- Fix: `clear()` moves focus to the Film title field. Test: `web/test/catalog.test.tsx` ("keeps keyboard focus when Clear filters removes itself").
+
+**2. A page change leaves focus and the tab title behind** (`9cd1ed3`)
+- Symptom: after opening a screening, focus stays on `<body>` (a screen reader gets no sign that the page changed), and the browser tab still says "ReelSchedule".
+- Mechanism: a client-side route change swaps the content without a page load, so the browser neither resets focus nor changes `document.title`.
+- Who ✍️:
+- Fix: `PageFocus` waits for the new page's `h1`, sets the tab title from it ("The Quiet Harbor · ReelSchedule") and moves focus to it. Filter changes (query string only) leave focus alone. Test: `web/test/page-focus.test.tsx`.
+
+**3. The sign-in form** (`adcb658`)
+- Symptom:
+  - *Sign in* could not be reached with Tab until 20 characters were typed, and nothing said why.
+  - Pressing Enter on it dropped focus to `<body>`; after the error, the next Tab left the page.
+  - The error was not tied to the field.
+  - A rejected token said "Your sign-in has expired".
+- Mechanism:
+  - The button had `disabled={busy || token.length < 20}`. A disabled button is not focusable, so disabling the focused button moves focus to `<body>`.
+  - The error `<p role="alert">` was announced once but was not referenced by the field.
+  - `invalid_token` was mapped to the message written for expired sessions.
+- Who ✍️:
+- Fix:
+  - The button is never disabled (`aria-disabled` while checking); a short token gets a message instead.
+  - The field gets `aria-invalid` and `aria-describedby` → the error, and focus returns to it.
+  - A rejected token says it wasn't accepted, with the server's reason.
+  - Test: `web/test/sign-in.test.tsx` (both tests fail on the old page).
+
+**4. Canceled screenings at 2.9:1 contrast** (`5718625`): see above.
+
+**Manual checks that passed:**
+- A skip link is the first Tab stop and moves focus to `<main>`.
+- Every stop shows the focus ring; there is no positive `tabindex`.
+- Tab order follows the visual order on the program, Rooms by day and screening pages.
+
+### Not tested ✍️
+
+Name at least one dimension you did not test and why. Candidates:
+- a screen reader (NVDA): the names were checked in code and tests, not by listening;
+- 200% zoom / 320 px reflow;
+- Windows forced colors (High Contrast);
+- reduced motion;
+- touch-target size.
+
+Also not covered: the Schedule console (signed-in only). Production runs read-only (`"auth": "disabled"`), so it was neither scanned nor walked through on the live site.
+
+## Tasks 8–9 — TODO
 To be filled after those captures.
 
 ## Challenged AI claim ✍️

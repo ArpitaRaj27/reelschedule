@@ -1,0 +1,42 @@
+# axe scan of https://reel.miniexhibit.app
+started 2026-11-20T00:07:50.209Z
+axe-core 4.14.0, Chrome (channel chrome) 157.0.8103.51, viewport 1280x900
+rules: axe defaults (WCAG 2.0/2.1/2.2 A and AA, plus best practices)
+
+## program  (https://reel.miniexhibit.app/)
+violations: 1 rules {"serious":1}; passes: 43; incomplete (needs a human): 0
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (1 element)
+      .wordmark  Text inside the element is not included in the accessible name
+
+## program-no-results  (https://reel.miniexhibit.app/?q=zzz)
+violations: 1 rules {"serious":1}; passes: 44; incomplete (needs a human): 0
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (1 element)
+      .wordmark  Text inside the element is not included in the accessible name
+
+## program-filtered  (https://reel.miniexhibit.app/?date=2026-11-21&status=canceled)
+violations: 1 rules {"serious":1}; passes: 44; incomplete (needs a human): 0
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (1 element)
+      .wordmark  Text inside the element is not included in the accessible name
+
+## grid  (https://reel.miniexhibit.app/grid?date=2026-11-20)
+violations: 1 rules {"serious":1}; passes: 40; incomplete (needs a human): 1
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (4 elements)
+      .wordmark  Text inside the element is not included in the accessible name
+      ul[aria-label="Main Hall schedule"] > .tl-item:nth-child(1) > .tl-block.is-scheduled[data-discover="true"]  Text inside the element is not included in the accessible name
+      .tl-item:nth-child(2) > .tl-block.is-scheduled[data-discover="true"]  Text inside the element is not included in the accessible name
+      ul[aria-label="Studio B schedule"] > .tl-item > .tl-block.is-scheduled[data-discover="true"]  Text inside the element is not included in the accessible name
+  [needs review] color-contrast: Elements must meet minimum color contrast ratio thresholds (2)
+
+## screening  (https://reel.miniexhibit.app/screenings/ee31adda-6fd3-4707-ab8d-461681fcbcaa)
+violations: 1 rules {"serious":1}; passes: 40; incomplete (needs a human): 0
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (3 elements)
+      .wordmark  Text inside the element is not included in the accessible name
+      .is-current  Text inside the element is not included in the accessible name
+      .tl-item:nth-child(2) > .tl-block.is-scheduled[data-discover="true"]  Text inside the element is not included in the accessible name
+
+## sign-in  (https://reel.miniexhibit.app/sign-in)
+violations: 1 rules {"serious":1}; passes: 40; incomplete (needs a human): 0
+  [serious] label-content-name-mismatch: Elements must have their visible text as part of their accessible name (1 element)
+      .wordmark  Text inside the element is not included in the accessible name
+
+total violated rules across views: 6

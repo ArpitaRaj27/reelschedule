@@ -19,6 +19,10 @@ Course rule: record what AI **generated**, what you **accepted / rejected / chan
 | 2026-11-18 | Turning off production source maps (`web/vite.config.ts`) after I chose "reduce" | | e.g. the map URL returns 404 after the deploy and purge |
 | 2026-11-18 | `load-test.ps1` (course-profile sha256 check, k6 run in the evidence folder, threshold table) and the k6 facts in the README | | e.g. I ran it myself; numbers come from `k6-summary.json` |
 | 2026-11-19 | Task 1 config export through my signed-in Cloudflare dashboard (read-only API GETs, no token); flagged Always Use HTTPS off and minimum TLS 1.0 and, with my approval, changed both in the dashboard | | e.g. `zone-settings-before-2026-11-19.json` vs `zone-settings.json`; `http-redirect.txt` |
+| 2026-11-19 | Task 7 axe scan script (`scripts/a11y/`) and the fixes for what it found (label in name: wordmark, timeline blocks), plus the Clear filters and page-change focus fixes and their tests (`9cd1ed3`). The focus defects were found by the AI's own keyboard test in its workspace | | e.g. my before/after scans on production; `npm test`; the recording |
+| 2026-11-19 | Manual contrast check of axe's "needs review" item and the fix (`5718625`). The canceled-screening numbers were measured by the AI from screenshot pixels on a local build with one screening canceled (production has none) | | e.g. recompute the ratios from the colors in `styles.css` |
+| 2026-11-19 | Sign-in form fixes (`adcb658`) and `web/test/sign-in.test.tsx`, found by the AI's keyboard test while preparing my recording | | e.g. step 5 of my recording; the tests fail on the old page |
+| 2026-11-19 | Task 7 README facts and the cue sheet for the recording (the recording, narration and ✍️ parts are mine) | | |
 
 ## Challenged AI claim
 ✍️ See the README section "Challenged AI claim". State the claim, the evidence that contradicted it (file + line), and what you did about it.
