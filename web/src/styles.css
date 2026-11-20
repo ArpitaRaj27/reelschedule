@@ -399,6 +399,11 @@ textarea:hover {
   opacity: 0.55;
   cursor: not-allowed;
 }
+/* Busy, but still focusable (a disabled button would drop keyboard focus to <body>). */
+.button[aria-disabled="true"] {
+  opacity: 0.75;
+  cursor: progress;
+}
 .actions {
   display: flex;
   flex-wrap: wrap;
