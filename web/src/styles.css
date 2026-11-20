@@ -726,11 +726,15 @@ textarea:hover {
 }
 .tl-free {
   position: absolute;
-  left: 0.75rem;
+  left: 0.5rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
   font-size: 0.85rem;
+  /* Its own solid background: the track's hour lines (a background gradient) ran through this text, where
+     muted on --rule is 3.03:1. On --surface it is 4.59:1 (dark 5.16:1). HW5 Task 7, manual contrast check. */
+  background: var(--surface);
+  padding: 0 0.25rem;
 }
 .tl-item {
   position: absolute;
@@ -786,14 +790,16 @@ a.tl-block:hover .tl-film {
   color: var(--paper);
   border-left-color: var(--amber);
 }
+/* Canceled is shown by the stripes, the gray edge and the line-through, not by fading the text: at opacity 0.75
+   the muted text measured 2.9:1 on white and 2.1:1 on a stripe. --ink-soft is 7.6:1 on white and 5.0:1 on a
+   stripe (dark 7.6 / 5.5). HW5 Task 7, manual contrast check. */
 .tl-block.is-canceled {
   box-shadow: inset 0 0 0 1px var(--muted);
-  opacity: 0.75;
 }
 .tl-block.is-canceled .tl-film {
   background: repeating-linear-gradient(0deg, transparent 0 6px, var(--rule) 6px 7px), var(--surface);
   border-left-color: var(--muted);
-  color: var(--muted);
+  color: var(--ink-soft);
 }
 .tl-block.is-canceled .tl-title {
   text-decoration: line-through;
