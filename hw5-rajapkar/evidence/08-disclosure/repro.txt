@@ -1,0 +1,107 @@
+HW5 Task 8 — cache-key confusion causing cross-user disclosure (loopback lab, synthetic users)
+run started 2026-11-23T02:28:11.013Z on win32 10.0.26300, node v24.11.0
+lab/origin.mjs sha256 0c7e44e3ad82d5bf65d0b7e6d063e54d50fd0359397e004de57f1672d464a80b
+lab/edge.mjs   sha256 bdef197a310e53f4948b8259c56a7081e476d4f5466cae61b60313eb732efd8e
+Both servers bind 127.0.0.1 only. Users are the lab's synthetic fixtures: sid-alice (S0198442), sid-bob (S0207731).
+
+Mistake 1 (origin): /account advertised `public, max-age=60` and its `Vary: Cookie` dropped   -> LEAK=1
+Mistake 2 (edge):   the cache key does not include the session cookie                       -> CACHE_KEY=vary-only
+
+------------------------------------------------------------------------------
+A. Safe baseline: LEAK=0, CACHE_KEY=conservative
+------------------------------------------------------------------------------
+[2026-11-23T02:28:11.190Z] origin started: node lab/origin.mjs  PORT=18080 LEAK=0
+[2026-11-23T02:28:11.349Z] edge started:   node lab/edge.mjs    PORT=18788 ORIGIN_PORT=18080 CACHE_KEY=conservative
+[2026-11-23T02:28:11.387Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: conservative
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status BYPASS
+[2026-11-23T02:28:11.397Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: conservative
+x-served-to: S0207731
+   body: Signed in as Bob Ortiz (S0207731)
+=> bob got bob's own page (S0207731), cache status BYPASS
+
+------------------------------------------------------------------------------
+B. Mistake 1 alone: LEAK=1, CACHE_KEY=conservative (the cookie is still in the key)
+------------------------------------------------------------------------------
+[2026-11-23T02:28:11.604Z] origin started: node lab/origin.mjs  PORT=18080 LEAK=1   <- mistake 1: /account public, max-age=60, no Vary
+[2026-11-23T02:28:11.763Z] edge started:   node lab/edge.mjs    PORT=18788 ORIGIN_PORT=18080 CACHE_KEY=conservative
+[2026-11-23T02:28:11.791Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: public, max-age=60
+age: 0
+x-cache-status: MISS
+x-cache-key-mode: conservative
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status MISS
+[2026-11-23T02:28:11.799Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: public, max-age=60
+age: 0
+x-cache-status: MISS
+x-cache-key-mode: conservative
+x-served-to: S0207731
+   body: Signed in as Bob Ortiz (S0207731)
+=> bob got bob's own page (S0207731), cache status MISS
+
+------------------------------------------------------------------------------
+C. Both mistakes: LEAK=1, CACHE_KEY=vary-only
+------------------------------------------------------------------------------
+[2026-11-23T02:28:11.975Z] edge started:   node lab/edge.mjs    PORT=18788 ORIGIN_PORT=18080 CACHE_KEY=vary-only   <- mistake 2: cookie not in the cache key
+[2026-11-23T02:28:11.999Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: public, max-age=60
+age: 0
+x-cache-status: MISS
+x-cache-key-mode: vary-only
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status MISS
+[2026-11-23T02:28:14.007Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: public, max-age=60
+age: 2
+x-cache-status: HIT
+x-cache-key-mode: vary-only
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> DISCLOSURE: bob's request (Cookie sid=sid-bob) was answered with alice's account page (S0198442), cache status HIT
+
+------------------------------------------------------------------------------
+D. Detection, run while the leak is live
+------------------------------------------------------------------------------
+[2026-11-23T02:28:14.010Z] $ node scripts/cache-guard.mjs http://127.0.0.1:18788 --path /account --cookie sid=sid-alice --cookie sid=sid-bob --personalized
+  # cache-guard 2026-11-23T02:28:14.120Z  http://127.0.0.1:18788
+  # rule: a response to a request with credentials must be BYPASS/DYNAMIC at the shared cache and say private or no-store
+  path      who                   http  cache  age  cacheControl        body          ray     
+  /account  Cookie sid=sid-alice  200   HIT    2    public, max-age=60  d6adb52b55e6  S0198442
+  /account  Cookie sid=sid-bob    200   HIT    2    public, max-age=60  d6adb52b55e6  S0198442
+  
+  FAIL (5):
+    - /account as Cookie sid=sid-alice: cache status HIT: SERVED FROM the shared cache
+    - /account as Cookie sid=sid-alice: Cache-Control "public, max-age=60" lets a shared cache store a credentialed response
+    - /account as Cookie sid=sid-bob: cache status HIT: SERVED FROM the shared cache
+    - /account as Cookie sid=sid-bob: Cache-Control "public, max-age=60" lets a shared cache store a credentialed response
+    - /account: 2 different users received byte-identical 200 responses (sha256 d6adb52b55e6)
+=> cache-guard exit code 1 (FAIL: the detection fired)
+
+run paused 2026-11-23T02:28:14.308Z; cleanup continues in cleanup.txt with the same edge process (its cache still holds Alice's page)

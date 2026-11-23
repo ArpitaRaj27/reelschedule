@@ -1,0 +1,130 @@
+HW5 Task 8 — cleanup, and proof that it worked
+continued 2026-11-23T02:28:14.310Z; the edge from repro.txt section C is still running, with Alice's page stored under GET /account
+
+------------------------------------------------------------------------------
+1. Revert the origin header (restart origin with LEAK=0). The edge cache is untouched.
+------------------------------------------------------------------------------
+[2026-11-23T02:28:14.506Z] origin started: node lab/origin.mjs  PORT=18080 LEAK=0
+[2026-11-23T02:28:16.519Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: public, max-age=60
+age: 4
+x-cache-status: HIT
+x-cache-key-mode: vary-only
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> DISCLOSURE: bob's request (Cookie sid=sid-bob) was answered with alice's account page (S0198442), cache status HIT
+=> Reverting the origin is NOT enough: the already-stored copy of Alice's page is still served until it expires or is purged.
+
+------------------------------------------------------------------------------
+2. Purge the affected path (all variants)
+------------------------------------------------------------------------------
+$ curl -sS -D - -X PURGE http://127.0.0.1:18788/account
+HTTP/1.1 200
+x-purged-entries: 1
+   body: purged 1 entry for /account
+
+------------------------------------------------------------------------------
+3. Re-request as both users, from two different clients
+------------------------------------------------------------------------------
+[2026-11-23T02:28:16.553Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: vary-only
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status BYPASS
+[2026-11-23T02:28:16.650Z] client: curl (curl.exe)
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: vary-only
+x-served-to: S0207731
+   body: Signed in as Bob Ortiz (S0207731)
+=> bob got bob's own page (S0207731), cache status BYPASS
+[2026-11-23T02:28:16.660Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: vary-only
+x-served-to: S0207731
+   body: Signed in as Bob Ortiz (S0207731)
+=> bob got bob's own page (S0207731), cache status BYPASS
+[2026-11-23T02:28:16.721Z] client: curl (curl.exe)
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: vary-only
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status BYPASS
+=> BYPASS means the edge did not store the page at all (the origin says private, no-store) — stricter than a fresh MISS.
+
+------------------------------------------------------------------------------
+4. Revert the cache key (restart edge with CACHE_KEY=conservative)
+------------------------------------------------------------------------------
+[2026-11-23T02:28:16.917Z] edge started:   node lab/edge.mjs    PORT=18788 ORIGIN_PORT=18080 CACHE_KEY=conservative
+   Note: this lab edge keeps its cache in memory, so a restart would also have emptied it. A real CDN keeps its
+   cache across rule changes, which is why the purge (step 2) was done and verified before this step.
+[2026-11-23T02:28:16.939Z] client: node http
+$ curl -sS -D - -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: conservative
+x-served-to: S0198442
+   body: Signed in as Alice Nguyen (S0198442)
+=> alice got alice's own page (S0198442), cache status BYPASS
+[2026-11-23T02:28:16.978Z] client: curl (curl.exe)
+$ curl -sS -D - -H 'Cookie: sid=sid-bob' http://127.0.0.1:18788/account
+HTTP/1.1 200
+cache-control: private, no-store
+vary: Cookie
+age: 0
+x-cache-status: BYPASS
+x-cache-key-mode: conservative
+x-served-to: S0207731
+   body: Signed in as Bob Ortiz (S0207731)
+=> bob got bob's own page (S0207731), cache status BYPASS
+
+------------------------------------------------------------------------------
+5. Detection after cleanup
+------------------------------------------------------------------------------
+[2026-11-23T02:28:16.981Z] $ node scripts/cache-guard.mjs http://127.0.0.1:18788 --path /account --cookie sid=sid-alice --cookie sid=sid-bob --personalized
+  # cache-guard 2026-11-23T02:28:17.069Z  http://127.0.0.1:18788
+  # rule: a response to a request with credentials must be BYPASS/DYNAMIC at the shared cache and say private or no-store
+  path      who                   http  cache   age  cacheControl       body          ray     
+  /account  Cookie sid=sid-alice  200   BYPASS  0    private, no-store  d6adb52b55e6  S0198442
+  /account  Cookie sid=sid-bob    200   BYPASS  0    private, no-store  c9ed8081c751  S0207731
+  
+  PASS: 2 credentialed responses, none cacheable or cached by a shared cache
+=> cache-guard exit code 0 (PASS)
+
+------------------------------------------------------------------------------
+6. Invalidate the synthetic sessions
+------------------------------------------------------------------------------
+[2026-11-23T02:28:17.294Z] edge and origin stopped. sid-alice and sid-bob exist only inside the running lab origin (fixtures in origin.mjs),
+   so they are gone with it. The same request now gets no answer at all:
+$ curl -sS -H 'Cookie: sid=sid-alice' http://127.0.0.1:18788/account
+   ECONNREFUSED
+
+Limits of this lab: both clients are on 127.0.0.1, so they are two clients, not two network locations;
+the edge binds loopback only. Production (reel.miniexhibit.app) was not touched.
+
+run finished 2026-11-23T02:28:17.300Z

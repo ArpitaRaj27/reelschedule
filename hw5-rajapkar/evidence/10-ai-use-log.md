@@ -23,6 +23,9 @@ Course rule: record what AI **generated**, what you **accepted / rejected / chan
 | 2026-11-19 | Manual contrast check of axe's "needs review" item and the fix (`5718625`). The canceled-screening numbers were measured by the AI from screenshot pixels on a local build with one screening canceled (production has none) | | e.g. recompute the ratios from the colors in `styles.css` |
 | 2026-11-19 | Sign-in form fixes (`adcb658`) and `web/test/sign-in.test.tsx`, found by the AI's keyboard test while preparing my recording | | e.g. step 5 of my recording; the tests fail on the old page |
 | 2026-11-19 | Task 7 README facts and the cue sheet for the recording (the recording, narration and ✍️ parts are mine) | | |
+| 2026-11-19 | Task 8 detection: `api/test/cache-guard.test.ts` (shown to fail on a deliberate public header on `/api/me`), `scripts/cache-guard.mjs` and the scheduled workflow `.github/workflows/cache-guard.yml` | | e.g. the guard fails on the lab leak and passes after cleanup; CI is green |
+| 2026-11-19 | Task 8 lab automation (`scripts/disclosure-lab.mjs`, unchanged course `origin.mjs`/`edge.mjs` in `lab/`) and the facts in `risk.md`; the ✍️ parts of `risk.md` are mine | | e.g. I ran it myself; read `repro.txt` and `cleanup.txt` |
+| 2026-11-23 | My first lab run on Windows printed the guard's FAIL table and then crashed (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, exit 3221226505). The AI traced it to a known Node-on-Windows bug when `process.exit()` runs right after `fetch` (nodejs/node#56645) and changed `cache-guard.mjs` to set `process.exitCode` instead | | e.g. I re-ran the lab; section D now ends with exit 1 |
 
 ## Challenged AI claim
 ✍️ See the README section "Challenged AI claim". State the claim, the evidence that contradicted it (file + line), and what you did about it.

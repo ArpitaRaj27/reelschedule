@@ -22,7 +22,7 @@
 | 5 | Budget, Lighthouse before/after, RUM pilot, k6 | `evidence/05-performance/` | `lighthouse.ps1`, `rum-summary.ps1`, `load-test.ps1` |
 | 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
 | 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
-| 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/` | TODO |
+| 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/`, [Task 8](#task-8--cross-user-cache-disclosure-loopback-lab) | lab and production check captured 2026-11-23 (lab on Windows, Node 24.11; production through Cloudflare: PASS); ✍️ parts of `risk.md` TODO |
 | 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/` | TODO |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
 
@@ -42,6 +42,8 @@ powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\load-test.ps1     
 powershell -ExecutionPolicy Bypass -File hw5-rajapkar\scripts\asset-size.ps1             # Task 6
 npm install --prefix hw5-rajapkar\scripts\a11y                                           # Task 7, once
 node hw5-rajapkar\scripts\a11y\axe-scan.mjs https://reel.miniexhibit.app                 # Task 7 ($env:A11Y_OUT = "<folder>" writes elsewhere)
+node hw5-rajapkar\scripts\disclosure-lab.mjs                                             # Task 8: loopback lab, synthetic users only
+node scripts\cache-guard.mjs https://reel.miniexhibit.app                                  # Task 8 detection against production
 ```
 
 Automated checks of the same policy (run in CI on every push): `npm test` → `api/test/delivery.test.ts` (headers per content class, app cache MISS → HIT → write → MISS, `/api/now`, RUM collector).
@@ -386,7 +388,28 @@ Name at least one dimension you did not test and why. Candidates:
 
 Also not covered: the Schedule console (signed-in only). Production runs read-only (`"auth": "disabled"`), so it was neither scanned nor walked through on the live site.
 
-## Tasks 8–9 — TODO
+## Task 8 — Cross-user cache disclosure (loopback lab)
+
+**Where:**
+- The course's loopback lab pair: `lab/origin.mjs` and `lab/edge.mjs`, unchanged copies with their sha256 in `lab/README.md`.
+- Synthetic users `sid-alice` and `sid-bob`, on 127.0.0.1 only. Nothing was run against `reel.miniexhibit.app`.
+- One command reproduces the leak, cleans up and proves the cleanup: `node hw5-rajapkar\scripts\disclosure-lab.mjs`.
+
+| File | What it shows |
+|---|---|
+| `evidence/08-disclosure/repro.txt` | <ul><li>A safe baseline.</li><li>Mistake 1 alone (`public, max-age=60`, no `Vary`), absorbed by the conservative cache key.</li><li>Both mistakes: **Bob's request is answered with Alice's account page, `HIT`**.</li><li>The detection firing.</li></ul> |
+| `evidence/08-disclosure/cleanup.txt` | Revert the origin → **still `HIT`** → purge → `BYPASS` and their own page for both users, from two clients → revert the cache key → detection passes → sessions gone |
+| `evidence/08-disclosure/risk.md` | The risk write-up: what would have to be true in ReelSchedule, blast radius, the detection (facts + ✍️) |
+| `evidence/08-disclosure/detection-production.txt` | The detection run against production through Cloudflare |
+
+**Detection added:**
+- **In CI:** `api/test/cache-guard.test.ts`. It walks every GET route under `/api` and requires `private`/`no-store` on credentialed requests. Render deploys only after it passes.
+- **In production:** `scripts/cache-guard.mjs`, run by `.github/workflows/cache-guard.yml` every 3 hours against `reel.miniexhibit.app`. It fails on any cache status but `BYPASS`/`DYNAMIC` for a credentialed request.
+- **The first run on Windows:** the guard printed its FAIL table and then Node crashed (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, a known Node-on-Windows bug when `process.exit()` runs right after `fetch`, nodejs/node#56645), so the lab recorded exit code 3221226505 instead of 1. Fixed in `2cba22b`: the guard now sets `process.exitCode`. The transcripts here are from the re-run.
+
+✍️ The interpretation is in `risk.md`.
+
+## Task 9 — TODO
 To be filled after those captures.
 
 ## Challenged AI claim ✍️

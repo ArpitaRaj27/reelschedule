@@ -1,0 +1,9 @@
+# cache-guard 2026-11-23T02:28:23.605Z  https://reel.miniexhibit.app
+# rule: a response to a request with credentials must be BYPASS/DYNAMIC at the shared cache and say private or no-store
+path                             who                      http  cache   age  cacheControl  body          ray                 
+/api/me                          Bearer synthetic user A  401   BYPASS  -    no-store      28cb3fb653b1  a5ecbdb5488eba7a-ORD
+/api/me                          Bearer synthetic user B  401   BYPASS  -    no-store      b47453d633df  a5ecbdb6deabba7a-ORD
+/api/films/search?q=cache-guard  Bearer synthetic user A  401   BYPASS  -    no-store      dbe8f1e4c4f1  a5ecbdb768acba7a-ORD
+/api/films/search?q=cache-guard  Bearer synthetic user B  401   BYPASS  -    no-store      912df671e5b6  a5ecbdb7ea52ba7a-ORD
+
+PASS: 4 credentialed responses, none cacheable or cached by a shared cache
