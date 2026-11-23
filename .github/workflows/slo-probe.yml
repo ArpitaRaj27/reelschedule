@@ -1,0 +1,38 @@
+# SLO probe: ReelSchedule's one alert (HW5 Task 9).
+# Once an hour, and on demand from the Actions tab (Run workflow), it judges one window of the SLI:
+#   GET https://reel.miniexhibit.app/api/status through Cloudflare answers 200 with a festival-status body within 60 s,
+#   on the first attempt or on one retry 30 s later. See scripts/slo-probe.mjs.
+# A bad window fails the run, and GitHub e-mails the failure: for a scheduled run, to the person who added or last
+# changed the schedule below; for a manual run, to whoever started it (with Actions notifications switched on in
+# GitHub's notification settings). The run page shows each attempt's status, latency, Cloudflare cache status, cf-ray
+# and X-Request-Id, and /healthz for diagnosis.
+#
+# Cost: 24 runs a day of about a minute each, inside GitHub's free Actions minutes for a private repository.
+# Each run also wakes the Render free instance if it is asleep (it sleeps after 15 minutes without traffic).
+name: SLO probe (production)
+
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: slo-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: One SLI window (reel.miniexhibit.app/api/status)
+        run: node scripts/slo-probe.mjs https://reel.miniexhibit.app

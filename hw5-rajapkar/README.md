@@ -23,7 +23,7 @@
 | 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
 | 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/`, [Task 8](#task-8--cross-user-cache-disclosure-loopback-lab) | lab and production check captured 2026-11-23 (lab on Windows, Node 24.11; production through Cloudflare: PASS); ✍️ parts of `risk.md` TODO |
-| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/` | TODO |
+| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | TODO: `observe.mjs` sample and join; the fire test |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
 
 ## Reproduce
@@ -44,6 +44,8 @@ npm install --prefix hw5-rajapkar\scripts\a11y                                  
 node hw5-rajapkar\scripts\a11y\axe-scan.mjs https://reel.miniexhibit.app                 # Task 7 ($env:A11Y_OUT = "<folder>" writes elsewhere)
 node hw5-rajapkar\scripts\disclosure-lab.mjs                                             # Task 8: loopback lab, synthetic users only
 node scripts\cache-guard.mjs https://reel.miniexhibit.app                                  # Task 8 detection against production
+node hw5-rajapkar\scripts\observe.mjs                                                  # Task 9: 12 requests with request ids; then copy the Render log lines and run it again with: join
+node scripts\slo-probe.mjs https://reel.miniexhibit.app                                    # Task 9: one SLI window (what the hourly workflow runs)
 ```
 
 Automated checks of the same policy (run in CI on every push): `npm test` → `api/test/delivery.test.ts` (headers per content class, app cache MISS → HIT → write → MISS, `/api/now`, RUM collector).
@@ -409,8 +411,72 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
 
 ✍️ The interpretation is in `risk.md`.
 
-## Task 9 — TODO
-To be filled after those captures.
+## Task 9 — Observability: one SLI, one SLO, one alert that fired
+
+**Reused, not built for this task:**
+- The API gives every request an id. It keeps a client's `X-Request-Id` if it looks like one (8–64 letters, digits, `_` or `-`), otherwise it makes a UUID, and it returns the id in `X-Request-Id`.
+- It writes one JSON line per request to stdout, which Render keeps as the service's logs: `{"ts", "level":"info", "msg":"request", "requestId", "method", "path", "status", "ms"}`.
+- `ms` (from the request reaching Express to the response finishing) is the one latency metric.
+- There is no OpenTelemetry. These are log lines joined by id, not spans.
+
+| File | What it shows |
+|---|---|
+| `evidence/09-observability/client-sample.md` (and `.json`) | 12 anonymous GETs to `/api/status` through Cloudflare, each with its own `X-Request-Id`: HTTP status, client latency, `cf-cache-status`, `Age`, the API's own cache header, the `X-Request-Id` that came back, `cf-ray` |
+| `evidence/09-observability/origin-log.txt` | The API's log lines for those ids, copied from Render's log view |
+| `evidence/09-observability/joined.md` | The two joined on the request id; request count by cache status, client and origin latency, requests meeting the SLI's bar |
+| `evidence/09-observability/probe-runs.png` | The "SLO probe (production)" run history: one run is one SLI window |
+| `evidence/09-observability/alert-email.png`, `alert-run.png` | The alert firing: GitHub's e-mail and the failed run's summary |
+| `evidence/09-observability/recovery-run.png` | The first good window after the fix |
+
+**Cache status comes from the client side.**
+- Only `cf-cache-status` on the response says whether Cloudflare answered from its stored copy.
+- When it did (`HIT`), the origin never saw the request: there is no log line for that id. The `X-Request-Id` on the response is the id of the earlier request whose response Cloudflare stored.
+- `joined.md` joins a client row to an origin line only when the origin logged that exact id.
+- No request id is put on a metric; ids live in log lines and in the probe's output.
+
+### SLI, SLO, error budget, alert
+
+- **SLI (time-based):** the proportion of hourly windows in which `GET https://reel.miniexhibit.app/api/status`, requested through Cloudflare from GitHub's runners, returns `200` with a festival-status body within **60 s**, on the first attempt or on one retry 30 s later (`scripts/slo-probe.mjs`).
+- **SLO:** **99 %** of hourly windows over a rolling **28 days**.
+- **Error budget:** 1 % of 672 windows = **6.72 bad windows, about 6 h 43 m of bad time** per 28 days. It is a time budget because the SLI counts windows, not requests.
+- **Alert:** any bad window. When both attempts fail, the run of `.github/workflows/slo-probe.yml` fails (hourly at :41, and on demand), and GitHub e-mails the failure to the repository owner.
+  - One bad window spends about 15 % of the 28-day budget (1 of 6.72), so the first one is worth a look.
+- **Why a person can act on it:**
+  - The e-mail links to the run. Its summary shows each attempt's HTTP status, latency, `cf-cache-status`, `cf-ray` and `X-Request-Id`, plus `/healthz` (database up or down, deployed commit).
+  - That points to the first place to look: Render (service suspended, deploy failed, instance crashed), the database, or Cloudflare (a challenge or a 52x error).
+
+**Why these numbers (facts):**
+- **Traffic is very low.** The festival is fictional and almost nobody uses the site, so a request-based SLI would rest on a handful of requests and swing wildly. An hourly synthetic check gives a steady denominator of 24 windows a day.
+- **The 60 s threshold is set by the hosting plan.**
+  - Render's free instance sleeps after 15 minutes without traffic, and waking it takes about 30–60 s. An hourly probe nearly always finds it asleep.
+  - With a 500 ms threshold every window would be bad, and the SLI would measure the plan's sleep instead of outages.
+  - The retry gives a slow wake-up a second chance on a warm instance.
+- **The CDN can hide a short outage.**
+  - `/api/status` carries `stale-if-error=600`. For up to 10 minutes after the last stored copy expires, Cloudflare may answer a failing origin with that copy.
+  - Users then get a slightly old but valid status, and the SLI counts that as good. The probe records `cf-cache-status`, so such a window shows which copy answered it.
+- **Limits:**
+  - Detection can lag by up to an hour, plus GitHub's own delay for scheduled runs.
+  - A run GitHub skips is a missing window, not a good one.
+  - Each run sees one Cloudflare data center.
+- **Frontend-to-backend trace propagation (optional):** not done.
+
+### The alert firing
+
+There is no staging site, so the break was on production at a quiet hour: the Render service was **suspended**, then resumed.
+
+| Time (UTC) | What happened | Evidence |
+|---|---|---|
+| ✍️ | Suspended the Render service | |
+| ✍️ | Probe run failed (bad window) | `alert-run.png` |
+| ✍️ | GitHub's e-mail arrived | `alert-email.png` |
+| ✍️ | Resumed the service | |
+| ✍️ | First good window again | `recovery-run.png` |
+
+✍️ **In your words:**
+- What did the alert tell you?
+- How long was it from the break to the e-mail, and why?
+- What would you check first if this came at 3 a.m.?
+- Should one bad window wake someone, or wait for a second?
 
 ## Challenged AI claim ✍️
 
