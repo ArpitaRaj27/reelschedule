@@ -23,7 +23,7 @@
 | 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
 | 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/`, [Task 8](#task-8--cross-user-cache-disclosure-loopback-lab) | lab and production check captured 2026-11-23 (lab on Windows, Node 24.11; production through Cloudflare: PASS); ✍️ parts of `risk.md` TODO |
-| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | TODO: `observe.mjs` sample and join; the fire test |
+| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | sample and join captured 2026-11-24; schedule results in the README; fire test TODO |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
 
 ## Reproduce
@@ -434,6 +434,13 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
 - When it did (`HIT`), the origin never saw the request: there is no log line for that id. The `X-Request-Id` on the response is the id of the earlier request whose response Cloudflare stored.
 - `joined.md` joins a client row to an origin line only when the origin logged that exact id.
 - No request id is put on a metric; ids live in log lines and in the probe's output.
+
+**What the sample showed (2026-11-24 16:26–16:29 UTC, `joined.md`):**
+- 12 requests. 4 reached the origin, and each was logged under the id it was sent with (36–97 ms inside the app). 8 were answered by Cloudflare alone (`HIT`, `Age` 2 or 4); they have no log line and came back with the id of the request whose response was stored.
+- Request #1 took 22,743 ms at the client but 49 ms in the app. The rest was Render waking the instance, which the app's own timer cannot see.
+- Burst 3 went to a different Cloudflare data center (`cf-ray` ends in CMH instead of YYZ) and was a `MISS`, not `EXPIRED`: each data center keeps its own copy.
+- The laptop's clock and Render's differ by about 10.6 s (request #7 sent at 16:28:33.7 by the laptop's clock, logged at 16:28:44.8 by Render, 484 ms in total). Pairing lines by timestamp would need that correction; pairing by request id does not.
+- The API's own cache (`X-Cache`) was `MISS` on all four origin requests: the bursts were 35 s apart and its TTL is 10 s.
 
 ### SLI, SLO, error budget, alert
 

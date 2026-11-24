@@ -1,0 +1,6 @@
+# Copied from Render: reelschedule-api-arpita -> Logs (Application logs, last hour), search "hw5t9-2611241626", 2026-11-24.
+# Render's display time (America/Chicago) and instance id, then the API's own JSON line.
+Nov 24 10:27:25 AM [4lv6p] {"ts":"2026-11-24T16:27:25.407Z","level":"info","msg":"request","requestId":"hw5t9-2611241626-01","method":"GET","path":"/api/status","status":200,"ms":49}
+Nov 24 10:28:05 AM [4lv6p] {"ts":"2026-11-24T16:28:05.207Z","level":"info","msg":"request","requestId":"hw5t9-2611241626-04","method":"GET","path":"/api/status","status":200,"ms":36}
+Nov 24 10:28:44 AM [4lv6p] {"ts":"2026-11-24T16:28:44.822Z","level":"info","msg":"request","requestId":"hw5t9-2611241626-07","method":"GET","path":"/api/status","status":200,"ms":80}
+Nov 24 10:29:24 AM [4lv6p] {"ts":"2026-11-24T16:29:24.305Z","level":"info","msg":"request","requestId":"hw5t9-2611241626-10","method":"GET","path":"/api/status","status":200,"ms":97}
