@@ -65,6 +65,11 @@ async function main() {
   for (const r of rows) console.log(cols.map((c) => String(r[c]).padEnd(width[c])).join("  "));
   if (health) console.log(`\n/healthz (diagnosis only): ${health}`);
   console.log(good ? "\nGOOD WINDOW" : "\nBAD WINDOW: the SLO alert fires (this run fails, GitHub e-mails it)");
+  if (!good && process.env.GITHUB_ACTIONS === "true") {
+    // An error annotation puts the reason in the failure e-mail and at the top of the run page.
+    const why = rows.map((r) => `attempt ${r.attempt}: ${r.verdict} (HTTP ${r.http}, ${r.ms} ms, cache ${r.cache}, ray ${r.ray})`).join("; ") + (health ? `; /healthz: ${health}` : "");
+    console.log(`::error title=SLO probe: bad window::${why.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`);
+  }
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     const { appendFileSync } = await import("node:fs");
@@ -105,7 +110,7 @@ async function attempt(url, requestId, threshold) {
     return { ...row, good: why === null, why };
   } catch (error) {
     const ms = Math.round(performance.now() - started);
-    return { at, requestId, http: "-", ms, cache: "-", age: "-", returnedId: "-", ray: "-", good: false, why: error.name === "TimeoutError" ? "no answer in 90 s" : `network error (${error.cause?.code ?? error.message})` };
+    return { at, requestId, http: "-", ms, cache: "-", age: "-", returnedId: "-", ray: "-", good: false, why: error.name === "TimeoutError" ? "no answer in 90 s" : `network error (${[error.cause?.code, error.cause?.message ?? error.message].filter(Boolean).join(": ")})` };
   }
 }
 

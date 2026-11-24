@@ -85,16 +85,25 @@ async function main() {
     const seen = [];
     for (const cred of credentials) {
       let res;
-      try {
-        // 90 s: a Render free instance can take ~50 s to wake up.
-        res = await fetch(base + path, { headers: { ...cred.headers, "User-Agent": "reelschedule-cache-guard/1" }, redirect: "manual", signal: AbortSignal.timeout(90_000) });
-      } catch (error) {
-        console.error(`cache-guard: could not reach ${base + path}: ${error.message}`);
-        return 2;
+      // A network error is retried twice, 10 s apart: one dropped connection from a CI runner should not page anyone.
+      // It still fails the run if all three attempts fail, because an unchecked guard proves nothing.
+      for (let attempt = 1; !res; attempt++) {
+        try {
+          // 90 s: a Render free instance can take ~50 s to wake up.
+          res = await fetch(base + path, { headers: { ...cred.headers, "User-Agent": "reelschedule-cache-guard/1" }, redirect: "manual", signal: AbortSignal.timeout(90_000) });
+        } catch (error) {
+          const why = describe(error);
+          if (attempt >= 3) {
+            annotate(`could not reach ${base + path} after 3 attempts: ${why}; the app was not checked`);
+            return 2;
+          }
+          console.error(`cache-guard: attempt ${attempt} to reach ${base + path} failed (${why}); retrying in 10 s`);
+          await new Promise((r) => setTimeout(r, 10_000));
+        }
       }
       // A Cloudflare challenge or block never reached the app, so it proves nothing either way. Fail loudly instead of passing.
       if (res.headers.get("cf-mitigated")) {
-        console.error(`cache-guard: Cloudflare answered ${res.status} with cf-mitigated: ${res.headers.get("cf-mitigated")} for ${path}; the app was not checked`);
+        annotate(`Cloudflare answered ${res.status} with cf-mitigated: ${res.headers.get("cf-mitigated")} for ${path} (ray ${res.headers.get("cf-ray")}); the app was not checked`);
         return 2;
       }
       const body = await res.arrayBuffer();
@@ -132,8 +141,24 @@ async function main() {
   if (failures.length) {
     console.log(`\nFAIL (${failures.length}):`);
     for (const f of failures) console.log(`  - ${f}`);
+    for (const f of failures.slice(0, 5)) annotate(f);
     return 1;
   }
   console.log(`\nPASS: ${rows.length} credentialed responses, none cacheable or cached by a shared cache`);
   return 0;
+}
+
+/** Print the reason, and in GitHub Actions also as an error annotation, so the failure e-mail and run page say why. */
+function annotate(message) {
+  console.error(`cache-guard: ${message}`);
+  if (process.env.GITHUB_ACTIONS === "true") console.log(`::error title=cache-guard::${message.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A")}`);
+}
+
+/** fetch() only says "fetch failed"; the reason (DNS, reset, TLS, timeout) is in error.cause. */
+function describe(error) {
+  const c = error?.cause;
+  if (error?.name === "TimeoutError") return "no answer in 90 s";
+  if (!c) return String(error?.message ?? error);
+  const inner = c.errors?.length ? c.errors.map((e) => e.code ?? e.message).join(", ") : null; // AggregateError: one per address tried
+  return [c.code, c.message, inner].filter(Boolean).join(": ");
 }

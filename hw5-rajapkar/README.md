@@ -408,6 +408,7 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
 - **In CI:** `api/test/cache-guard.test.ts`. It walks every GET route under `/api` and requires `private`/`no-store` on credentialed requests. Render deploys only after it passes.
 - **In production:** `scripts/cache-guard.mjs`, run by `.github/workflows/cache-guard.yml` every 3 hours against `reel.miniexhibit.app`. It fails on any cache status but `BYPASS`/`DYNAMIC` for a credentialed request.
 - **The first run on Windows:** the guard printed its FAIL table and then Node crashed (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, a known Node-on-Windows bug when `process.exit()` runs right after `fetch`, nodejs/node#56645), so the lab recorded exit code 3221226505 instead of 1. Fixed in `2cba22b`: the guard now sets `process.exitCode`. The transcripts here are from the re-run.
+- **A false alarm from the schedule (2026-11-24 02:22 UTC):** scheduled run #2 failed with exit 2 after `could not reach https://reel.miniexhibit.app/api/me: fetch failed`, on the first request from GitHub's runner; runs #1 and #3 passed. The guard printed only `fetch failed` and dropped the reason (it is in the error's `cause`), and it gave up after one try, so a single dropped connection e-mailed a failure that looked like a finding. Since then it retries a network error twice, 10 s apart, prints the reason, and puts it in an error annotation so the e-mail says why. An unchecked guard still fails the run.
 
 ✍️ The interpretation is in `risk.md`.
 
@@ -459,6 +460,20 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
   - A run GitHub skips is a missing window, not a good one.
   - Each run sees one Cloudflare data center.
 - **Frontend-to-backend trace propagation (optional):** not done.
+
+### What the schedule actually produced
+
+The hourly schedule started 2026-11-23 02:40 UTC. By 2026-11-24 16:00 UTC it should have produced about 37 windows; GitHub started **3**, each 33–58 minutes after its `:41` slot, about 11 hours apart. The cache guard (every 3 hours) ran 3 times out of 13 slots.
+
+| Run | Started (UTC) | HTTP | Latency | Cloudflare | Data center | Window |
+|---|---|---|---|---|---|---|
+| SLO probe #1 | 2026-11-23 13:39 | 200 | 23,000 ms | MISS | LAX | good |
+| SLO probe #2 | 2026-11-24 01:14 | 200 | 17,829 ms | MISS | EWR | good |
+| SLO probe #3 | 2026-11-24 11:36 | 200 | 22,632 ms | MISS | IAD | good |
+
+- All three found the Render instance asleep: 18–23 s is the wake-up, which is why the threshold is 60 s and not 500 ms.
+- The measured SLI is 3 of 3 windows good, but over 3 windows, not 37. GitHub's documentation warns that scheduled runs can be delayed under load and that some queued jobs may be dropped; a dropped run does not fail, it just never happens.
+- So in practice detection could lag by about 11 hours, not one. A monitor that runs on its own schedule outside GitHub Actions would fix that.
 
 ### The alert firing
 
