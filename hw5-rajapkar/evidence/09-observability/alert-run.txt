@@ -1,0 +1,16 @@
+SLO probe (production) #4 — the fired alert
+https://github.com/ArpitaRaj27/reelschedule/actions/runs/45444555581
+Manually triggered (workflow_dispatch) on main @ c8519a3, 2026-11-24 ~17:05 UTC; status Failure, 45 s
+Render service reelschedule-api-arpita suspended at 11:04 AM America/Chicago (17:04 UTC), per Render's Events page.
+
+probe summary (copied from the run page)
+Bad window: alert — GET https://reel.miniexhibit.app/api/status
+attempt  at                        requestId                  http  ms   cache   age  returnedId  ray                   verdict
+1        2026-11-24T17:05:15.682Z  slo-probe-gh45444555581-1  503   428  BYPASS  -    -           a5f9ff5a4f5dc049-DFW  bad: HTTP 503
+2        2026-11-24T17:05:46.134Z  slo-probe-gh45444555581-2  503   221  BYPASS  -    -           a5fa00180888c049-DFW  bad: HTTP 503
+/healthz (diagnosis only): HTTP 503 <title>Service Suspended</title> ...
+
+Annotations: 2 errors and 1 warning
+- probe: Process completed with exit code 1.
+- SLO probe: bad window: attempt 1: bad: HTTP 503 (HTTP 503, 428 ms, cache BYPASS, ray a5f9ff5a4f5dc049-DFW); attempt 2: bad: HTTP 503 (HTTP 503, 221 ms, cache BYPASS, ray a5fa00180888c049-DFW); /healthz: HTTP 503 <!DOCTYPE html> ... <title>Service Suspended</title> ...
+- probe (warning): Node.js 20 is deprecated; actions/checkout@v4 and actions/setup-node@v4 were forced to run on Node.js 24.

@@ -23,7 +23,7 @@
 | 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
 | 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/`, [Task 8](#task-8--cross-user-cache-disclosure-loopback-lab) | lab and production check captured 2026-11-23 (lab on Windows, Node 24.11; production through Cloudflare: PASS); ✍️ parts of `risk.md` TODO |
-| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | sample and join captured 2026-11-24; schedule results in the README; fire test TODO |
+| 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | captured 2026-11-24: sample and join, the alert firing (run #4, e-mail) and recovery (run #5); ✍️ parts TODO |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
 
 ## Reproduce
@@ -408,7 +408,7 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
 - **In CI:** `api/test/cache-guard.test.ts`. It walks every GET route under `/api` and requires `private`/`no-store` on credentialed requests. Render deploys only after it passes.
 - **In production:** `scripts/cache-guard.mjs`, run by `.github/workflows/cache-guard.yml` every 3 hours against `reel.miniexhibit.app`. It fails on any cache status but `BYPASS`/`DYNAMIC` for a credentialed request.
 - **The first run on Windows:** the guard printed its FAIL table and then Node crashed (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, a known Node-on-Windows bug when `process.exit()` runs right after `fetch`, nodejs/node#56645), so the lab recorded exit code 3221226505 instead of 1. Fixed in `2cba22b`: the guard now sets `process.exitCode`. The transcripts here are from the re-run.
-- **A false alarm from the schedule (2026-11-24 02:22 UTC):** scheduled run #2 failed with exit 2 after `could not reach https://reel.miniexhibit.app/api/me: fetch failed`, on the first request from GitHub's runner; runs #1 and #3 passed. The guard printed only `fetch failed` and dropped the reason (it is in the error's `cause`), and it gave up after one try, so a single dropped connection e-mailed a failure that looked like a finding. Since then it retries a network error twice, 10 s apart, prints the reason, and puts it in an error annotation so the e-mail says why. An unchecked guard still fails the run.
+- **A false alarm from the schedule (2026-11-24 02:22 UTC):** scheduled run #2 failed with exit 2 after `could not reach https://reel.miniexhibit.app/api/me: fetch failed`, on the first request from GitHub's runner; runs #1 and #3 passed. The guard printed only `fetch failed` and dropped the reason (it is in the error's `cause`), and it gave up after one try, so a single dropped connection e-mailed a failure that looked like a finding. Since then it retries a network error twice, 10 s apart, prints the reason, and puts it in an error annotation at the top of the run page. An unchecked guard still fails the run. (GitHub's e-mail itself shows only that the job failed and how many annotations it has, `alert-email.png` in Task 9; the reason is one click away on the run page.)
 
 ✍️ The interpretation is in `risk.md`.
 
@@ -425,9 +425,9 @@ Also not covered: the Schedule console (signed-in only). Production runs read-on
 | `evidence/09-observability/client-sample.md` (and `.json`) | 12 anonymous GETs to `/api/status` through Cloudflare, each with its own `X-Request-Id`: HTTP status, client latency, `cf-cache-status`, `Age`, the API's own cache header, the `X-Request-Id` that came back, `cf-ray` |
 | `evidence/09-observability/origin-log.txt` | The API's log lines for those ids, copied from Render's log view |
 | `evidence/09-observability/joined.md` | The two joined on the request id; request count by cache status, client and origin latency, requests meeting the SLI's bar |
-| `evidence/09-observability/probe-runs.png` | The "SLO probe (production)" run history: one run is one SLI window |
-| `evidence/09-observability/alert-email.png`, `alert-run.png` | The alert firing: GitHub's e-mail and the failed run's summary |
-| `evidence/09-observability/recovery-run.png` | The first good window after the fix |
+| `evidence/09-observability/probe-runs.jpg` | The "SLO probe (production)" run history: one run is one SLI window |
+| `evidence/09-observability/alert-email.png`, `alert-run.jpg` (and `.txt`) | The alert firing: GitHub's e-mail and the failed run's summary |
+| `evidence/09-observability/recovery-run.jpg` (and `.txt`) | The first good window after the fix |
 
 **Cache status comes from the client side.**
 - Only `cf-cache-status` on the response says whether Cloudflare answered from its stored copy.
@@ -484,15 +484,20 @@ The hourly schedule started 2026-11-23 02:40 UTC. By 2026-11-24 16:00 UTC it sho
 
 ### The alert firing
 
-There is no staging site, so the break was on production at a quiet hour: the Render service was **suspended**, then resumed.
+There is no staging site, so the break was on production at a quiet hour on 2026-11-24: the Render service was **suspended** for 12 minutes, then resumed. Times are from Render's Events page, the run pages and the e-mail.
 
 | Time (UTC) | What happened | Evidence |
 |---|---|---|
-| ✍️ | Suspended the Render service | |
-| ✍️ | Probe run failed (bad window) | `alert-run.png` |
-| ✍️ | GitHub's e-mail arrived | `alert-email.png` |
-| ✍️ | Resumed the service | |
-| ✍️ | First good window again | `recovery-run.png` |
+| 17:04 | Suspended the Render service (Render: "Suspended by you", 11:04 AM CST) | Render Events |
+| 17:05:15, 17:05:46 | Probe run #4 (started by hand from the Actions tab): both attempts `503` from Render's "Service Suspended" page, `BYPASS` at Cloudflare, `/healthz` also `503`; bad window, run failed | `alert-run.jpg`, `alert-run.txt` |
+| 17:06 | GitHub's e-mail "Run failed: SLO probe (production) - main (c8519a3)" arrived | `alert-email.png` |
+| 17:16 | Resumed the service (Render: "Resumed by you", 11:16 AM CST) | Render Events |
+| 17:18:11 | Probe run #5: `200` in 22,800 ms (the instance starting after the resume), `EXPIRED` at Cloudflare; good window | `recovery-run.jpg`, `recovery-run.txt` |
+
+Facts from the test:
+- From the break to the e-mail took about 2 minutes, because the run was started by hand a minute after the suspend. Left to the schedule, it would have been caught only if GitHub happened to start a run during those 12 minutes; over the previous 37 hours it started one about every 11.
+- Cloudflare did not hide this outage: it passed Render's `503` straight through (`BYPASS`, data center DFW) and served no stored copy. The wait until 10:40 local time let the copies from the morning's sample expire first.
+- The e-mail says which workflow failed and links to the run; the reason (`503`, "Service Suspended", `/healthz` down) is in the run's annotation and summary.
 
 ✍️ **In your words:**
 - What did the alert tell you?

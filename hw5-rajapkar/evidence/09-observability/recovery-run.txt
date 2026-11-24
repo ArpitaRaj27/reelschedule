@@ -1,0 +1,11 @@
+SLO probe (production) #5 — the first good window after the service was resumed
+https://github.com/ArpitaRaj27/reelschedule/actions/runs/45447017937
+Manually triggered (workflow_dispatch) on main @ c8519a3, 2026-11-24 ~17:18 UTC; status Success, 34 s
+Render service resumed at 11:16 AM America/Chicago (17:16 UTC), per Render's Events page.
+
+probe summary (copied from the run page)
+Good window — GET https://reel.miniexhibit.app/api/status
+attempt  at                        requestId                  http  ms     cache    age  returnedId                 ray                   verdict
+1        2026-11-24T17:18:11.055Z  slo-probe-gh45447017937-1  200   22800  EXPIRED  -    slo-probe-gh45447017937-1  a5fa12491c5c076d-YYZ  good
+
+Annotations: 1 warning (Node.js 20 is deprecated; actions/checkout@v4 and actions/setup-node@v4 were forced to run on Node.js 24).
