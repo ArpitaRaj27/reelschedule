@@ -16,12 +16,12 @@
 | # | Requirement | Evidence | Status |
 |---|---|---|---|
 | 1 | CDN in front, TLS intact, vendor headers, config exported | `evidence/01-edge-proof.txt`, `evidence/01-cdn-config/` | captured (export 2026-11-19) |
-| 2 | Cache-policy matrix + one app cache (MISS → HIT → MISS) | [matrix below](#cache-policy-matrix), `evidence/02-app-cache-miss-hit.txt` | capture: `capture-cache-states.ps1` |
-| 3 | Four cache states | `evidence/03-headers/{miss,hit,304,purge-before,purge-after}.txt` | capture: `capture-cache-states.ps1` |
-| 4 | Compression | `evidence/04-compression.txt` | capture: `compression.ps1` |
-| 5 | Budget, Lighthouse before/after, RUM pilot, k6 | `evidence/05-performance/` | `lighthouse.ps1`, `rum-summary.ps1`, `load-test.ps1` |
-| 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | capture: Render build log, `asset-size.ps1` |
-| 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); recording TODO (must be you) |
+| 2 | Cache-policy matrix + one app cache (MISS → HIT → MISS) | [matrix below](#cache-policy-matrix), `evidence/02-app-cache-miss-hit.txt` | captured 2026-11-18 (run 2) |
+| 3 | Four cache states | `evidence/03-headers/{miss,hit,304,purge-before,purge-after}.txt` | captured 2026-11-18 (run 2) |
+| 4 | Compression | `evidence/04-compression.txt` | captured 2026-11-18 |
+| 5 | Budget, Lighthouse before/after, RUM pilot, k6 | `evidence/05-performance/` | captured 2026-11-18 (Lighthouse before/after, RUM pilot, k6) |
+| 6 | Asset-size report + one byte-budget decision | `evidence/06-bundle/` | captured 2026-11-18 (before `c1dc15c`, after `39b13bb`) |
+| 7 | axe (incl. one stateful view) + keyboard walkthrough + scanner-missed defect | `evidence/07-accessibility/`, [Task 7](#task-7--accessibility) | scans captured 2026-11-20 (before `39b13bb`, after `adcb658`); keyboard walkthrough recording not done yet |
 | 8 | Cross-user cache disclosure (loopback lab), cleanup, detection | `evidence/08-disclosure/`, [Task 8](#task-8--cross-user-cache-disclosure-loopback-lab) | lab and production check captured 2026-11-23 (lab on Windows, Node 24.11; production through Cloudflare: PASS); ✍️ parts of `risk.md` TODO |
 | 9 | SLI, SLO, error budget, alert that fired | `evidence/09-observability/`, [Task 9](#task-9--observability-one-sli-one-slo-one-alert-that-fired) | captured 2026-11-24: sample and join, the alert firing (run #4, e-mail) and recovery (run #5); ✍️ parts TODO |
 | — | AI-use log, challenged claim, redaction attestation | `evidence/10-ai-use-log.md`, `evidence/11-redaction-attestation.md` | template |
@@ -275,10 +275,10 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 | `GET index-B90xKGRO.js.map` | 200, 1,911,676 bytes, `HIT` | **404**, 125-byte JSON error, `BYPASS` |
 
 - Both URLs (`index-B90xKGRO.js` and `index-B90xKGRO.js.map`) were purged in the Cloudflare dashboard (Custom Purge → URL) after `39b13bb` went live. The new JS then came from Cloudflare's cache (`HIT`), so the edge held the new file under the old name.
-- The GitHub repository is **private**, so the public map was the only public copy of the original source.
+- When this change was made (2026-11-18) the GitHub repository was **private**, so the public map was the only public copy of the original source. The repository was made public on 2026-11-25 for the final submission (see `evidence/11-redaction-attestation.md` for the history scan).
 - The CSS file was byte-identical in both runs (17,097 bytes uncompressed), yet its compressed size changed: br 4,701 → 4,711, gzip 4,569 → 4,576. Cloudflare compresses at the edge, and the output for the same file differed between the two captures.
 
-**Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, given that the repository is private? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
+**Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, given that the repository was private at the time? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
 
 ## Task 7 — Accessibility
 
