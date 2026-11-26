@@ -1,8 +1,13 @@
 # Redaction attestation (HW5)
 
-✍️ Write this in your own words once all evidence is captured, e.g.:
+**My attestation:**
 
-> I attest that no artifact in this submission contains a usable secret, token, cookie value or authorization code. The capture scripts send no cookies or Authorization headers, so the header dumps contain none; the Cloudflare API token used for the configuration export was held only in a PowerShell environment variable, is shown as `<REDACTED:cloudflare_api_token>`, and was deleted after the export. I verified this by running: `<the command you ran>` and found no matches.
+- The capture scripts do not send any of my cookies or `Authorization` headers.
+- The production cache test was done with made-up tokens, and its output includes labels, not token values.
+- `sid-alice` / `sid-bob` are the dummy users of the course lab on 127.0.0.1, visible by design.
+- `alert-email.png` is cropped to the alert message.
+- The Cloudflare export was done through my signed-in dashboard, without an API token (AI-use log, row 15).
+- The full-history search (facts below) found no live secret.
 
 Suggested scan (PowerShell, from the repository root):
 

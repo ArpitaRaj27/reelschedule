@@ -71,21 +71,30 @@ Automated checks of the same policy (run in CI on every push): `npm test` → `a
 
 **Observation worth explaining (✍️):** before the zone was proxied, responses *already* carried `server: cloudflare` and `cf-cache-status: DYNAMIC`. Render's own edge runs on Cloudflare. `01-edge-proof.txt` compares DNS answers and headers for the custom domain and the raw origin hostname; correlate them instead of trusting one header.
 
+**My explanation:** why I received responses saying `server: cloudflare` although my zone was not yet proxied.
+
+- `server: cloudflare` indicates the answer comes from a Cloudflare server, but not that it came from my Cloudflare zone.
+- `reel.miniexhibit.app` has no CNAME. It resolves directly to Cloudflare proxy IP addresses (104.21.35.6, 172.67.167.38, ...), and the name servers for my zone are `oswald` / `tina.ns.cloudflare.com` (`evidence/01-edge-proof.txt`).
+- `reelschedule-api-arpita.onrender.com` resolves to `gcp-us-west1-1.origin.onrender.com.cdn.cloudflare.net`: Render places its own Cloudflare in front of all services.
+- Both have `Server: cloudflare`, `cf-cache-status: DYNAMIC` and `x-render-origin-server: Render`. They vary in their CF-RAY data center (CMH vs ORD) and in their DNS route.
+- Hence my domain goes through two Cloudflare levels: my zone, then Render's. Only my zone runs my Cache Rule, and hence `HIT` and `Age` come only via `reel.miniexhibit.app`.
+- Learning: connect DNS, name servers and caching behavior together; a single vendor header is not sufficient evidence.
+
 ## Cache-policy matrix
 
-Configuration columns are taken from the code (`api/src/webApp.ts`, `api/src/app.ts`) and the Cloudflare rule above. **The rationale column is yours to write ✍️.** Each cell lists the facts and numbers to use; turn them into 2–4 sentences: the number, what you trade away, who accepted it (for a fictional festival, "I, as product owner" is honest), and what would make it wrong.
+Configuration columns are taken from the code (`api/src/webApp.ts`, `api/src/app.ts`) and the Cloudflare rule above. The rationale column is my own reasoning for each row: the number, what it costs, and what would make it wrong.
 
-| Content class | Example URL | Layer(s) | Configuration | Cache key | Invalidation | Rationale ✍️ (facts to use) |
+| Content class | Example URL | Layer(s) | Configuration | Cache key | Invalidation | Rationale |
 |---|---|---|---|---|---|---|
-| HTML shell | `/`, `/grid?date=…` | Browser (revalidate), CDN 30 s | `Cache-Control: public, max-age=0, must-revalidate` · `CDN-Cache-Control: max-age=30` · strict CSP | full URL | TTL 30 s; purge `/` on deploy if needed | The shell names the hashed assets, so a stale shell after a deploy points at assets that may be gone → 30 s bounds that. Observed: Cloudflare strips the shell's ETag, so a browser revalidation re-downloads it (see challenged claim) |
-| Hashed assets | `/assets/index-CERyDSi4.js` | Browser + CDN, 1 year | `public, max-age=31536000, immutable` | full URL (the hash is in the name) | never purged: a new build = new filename | Content can't change under a name; a missing asset returns a JSON 404, never HTML |
-| Unhashed static | `/favicon.svg` | Browser + CDN, 1 h | `public, max-age=3600` | full URL | TTL | Rarely changes; 1 h of a stale icon costs nothing |
-| Public API list | `/api/screenings?date=2026-11-21` | Browser (revalidate → 304), React Query (10 s in memory), CDN 10 s | `public, max-age=0, s-maxage=10` · `CDN-Cache-Control: max-age=10, stale-while-revalidate=20, stale-if-error=600` · weak ETag | full URL incl. `?v=<latest change id>` | TTL; live update bumps `v` → new key | Program changes only on programmer writes; live viewers jump to a new key at once, others see ≤10 s (+20 s stale) old data; `stale-if-error` keeps the program visible for 10 min if Render is down or asleep |
-| Polled status (+ app cache) | `/api/status` | Browser (revalidate), CDN 10 s, **app cache 10 s** (in memory, single-flight) | as above + `X-Cache: HIT \| MISS` | edge: full URL · app: `status:v1` | edge TTL; app cache deleted on every schedule write and on every change event | Page polls every 30 s; a burst of edge misses reaches Postgres once per 10 s; write invalidation means the first read after a change is fresh |
-| Volatile | `/api/now` | CDN 2 s only | `public, max-age=0` · `CDN-Cache-Control: max-age=2` | full URL | TTL | Body changes every request → no validator can ever match → every expiry is a full payload |
-| Authenticated | `/api/me`, `/api/films/search`, writes | **none** | `Cache-Control: private, no-store` whenever `Authorization` is present | — | never stored | Planned for HW7 sign-in; acceptance test exists (`api.test.ts` "marks authenticated responses private, no-store"); the edge bypasses because the origin says `no-store` |
-| Live stream | `/api/events` (SSE) | none | `no-store`; excluded by the cache rule | — | never stored | A cached event stream would replay one moment forever |
-| Errors | any 4xx/5xx JSON | none | `no-store` | — | never stored | An error must not outlive its cause |
+| HTML shell | `/`, `/grid?date=…` | Browser (revalidate), CDN 30 s | `Cache-Control: public, max-age=0, must-revalidate` · `CDN-Cache-Control: max-age=30` · strict CSP | full URL | TTL 30 s; purge `/` on deploy if needed | 30 s at the edge, always revalidated in the browser. After a deploy, a visitor may retrieve a shell that references old assets for up to 30 s. Wrong if a deploy removed old assets immediately, or if the shell differed from user to user. |
+| Hashed assets | `/assets/index-CERyDSi4.js` | Browser + CDN, 1 year | `public, max-age=31536000, immutable` | full URL (the hash is in the name) | never purged: a new build = new filename | 1 year, immutable. A modified file always gets a new name, hence the long TTL doesn't cost anything. Wrong if any built file was modified in place without getting a new hash. |
+| Unhashed static | `/favicon.svg` | Browser + CDN, 1 h | `public, max-age=3600` | full URL | TTL | 1 hour; a stale favicon doesn't cost anything. Wrong for an important file (a manifest, a policy file). |
+| Public API list | `/api/screenings?date=2026-11-21` | Browser (revalidate → 304), React Query (10 s in memory), CDN 10 s | `public, max-age=0, s-maxage=10` · `CDN-Cache-Control: max-age=10, stale-while-revalidate=20, stale-if-error=600` · weak ETag | full URL incl. `?v=<latest change id>` | TTL; live update bumps `v` → new key | 10 s at the edge, plus 20 s served stale while refreshing, 10 min if Render is down. Live viewers receive new data immediately (the `?v=` key is updated); other users may see data that's up to 30 s old. Wrong if programmers had to see their own edit immediately through a cached URL, or if the page showed ticket counts. |
+| Polled status (+ app cache) | `/api/status` | Browser (revalidate), CDN 10 s, **app cache 10 s** (in memory, single-flight) | as above + `X-Cache: HIT \| MISS` | edge: full URL · app: `status:v1` | edge TTL; app cache deleted on every schedule write and on every change event | The page polls every 30 s; edge 10 s; app cache 10 s, deleted on every write; a burst of misses results in at most 1 query per 10 s for Postgres. Wrong if there were many API instances (each of them has its own app cache). |
+| Volatile | `/api/now` | CDN 2 s only | `public, max-age=0` · `CDN-Cache-Control: max-age=2` | full URL | TTL | 2 s at the edge only; the body changes on every request, hence the ETag never matches. Wrong if read as an exact clock. |
+| Authenticated | `/api/me`, `/api/films/search`, writes | **none** | `Cache-Control: private, no-store` whenever `Authorization` is present | — | never stored | Never stored; `private, no-store` whenever `Authorization` is present. Wrong for a cookie-based login (HW7), which this check isn't aware of. |
+| Live stream | `/api/events` (SSE) | none | `no-store`; excluded by the cache rule | — | never stored | Excluded; a cached stream would replay the same moment forever. |
+| Errors | any 4xx/5xx JSON | none | `no-store` | — | never stored | `no-store`; an error should not live longer than its cause. |
 
 ## Captures (facts)
 
@@ -109,6 +118,13 @@ Use `evidence/03-headers/*`. Explain in your own words:
 3. why the purge flipped the asset from `HIT` back to `MISS`;
 4. why a volatile-body endpoint (`/api/now`) can never be `REVALIDATED`.
 
+**My answers:**
+
+1. MISS, then HIT, and `Age`: `miss.txt` at 17:57:50, MISS, 312 ms; `hit.txt` 3.5 s later, same URL, HIT, `Age: 3`, 146 ms, both at CMH. The first request did not find anything in the cache, went to Render, and Cloudflare cached the response for 10 s; the second one was served from this copy. `Age` is the number of seconds since the response was cached.
+2. 304 with 0 bytes: step 1 got `200`, 4,871 bytes, ETag `W/"1307-…"` (MISS at ATL). In step 2 the ETag was sent back in the `If-None-Match` header, and it got `304`, 0 bytes, `cf-cache-status: MISS` at CMH. Another data center without the copy forwarded the conditional request to Render; Express saw that the ETag was unchanged and returned the 304, which came back through the edge.
+3. Purge turned HIT into MISS: the JS file (1 year, `immutable`) was HIT at CMH; after the single-URL purge at 18:03:13 it was MISS at the same data center and downloaded 352,290 bytes again. A purge is the only way to remove the 1-year copy early. The next request reached the ARN data center, which never had it, so that MISS says nothing about the purge.
+4. `/api/now` will never be `REVALIDATED`: it returns the current time in the response body, so every response and its ETag are unique; when the 2 s copy expires, Render never replies that it is unchanged, so the response is a full `200` every time (`EXPIRED`/`MISS`).
+
 ## Task 4 — Compression
 
 Largest text asset: `/assets/index-CERyDSi4.js`, captured 2026-11-18 18:09 UTC by `scripts/compression.ps1` (`evidence/04-compression.txt`). Bytes are the bytes on the wire: curl ran without `--compressed`, so it did not decode.
@@ -127,6 +143,14 @@ Facts to interpret ✍️:
 - Possible explanation (a hypothesis, not verified): Cloudflare compresses on the fly at a fast, low quality level. The Free plan has no setting that shows this. If you use it, label it as a hypothesis, like the course's own example.
 - All four requests were answered at `-NRT` (Tokyo) although the client is in Chicago. Earlier runs also landed at ARN and MAN. Note this as a fact; don't explain it unless you have a source.
 - Against the budget: 108 KB of JavaScript compressed (gzip) is under the 200 KB compressed budget in Task 5.
+
+**My interpretation:**
+
+- All four requested encodings were respected (plain 352,290 bytes; gzip 107,907; br 109,286; zstd 112,305), hence the edge negotiates based on the request.
+- There was one stored copy (from the plain request, MISS), used to serve the other three requests as HITs (`Age` 1, 2, 3): Cloudflare compresses while sending, not while storing.
+- Brotli was 1.3% bigger than gzip, which is unusual for a static file. Hypothesis (not verified): Cloudflare compresses on the fly at a fast, low setting, and this cannot be checked on the Free plan.
+- The response came from Tokyo (NRT) to a client in Chicago. I note this as a fact, with no further explanation.
+- 108 KB of compressed JavaScript is below my 200 KB budget.
 
 ## Task 5 — Performance
 
@@ -186,6 +210,13 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 3. LCP and the score moved in both directions between rows. Is that the change or noise? Use the run ranges and the network facts, not just the medians.
 4. What is left: the 0.021 font shift. What would you try next (for example a fallback font with matching metrics, or `font-display: optional`), and what would it cost?
 
+**My answers:**
+
+1. Did it work? Yes, for layout shift: devtools CLS went 0.147 → 0.021, and it is consistent across all 3 runs (0.146–0.147 before, 0.021 after). The 0.105 layout shift on `div.catalog-layout` is gone, and only one 0.021 "Web font loaded" shift is left.
+2. Why only devtools sees it: devtools really slows down the network, which delays the `/api/status` and `/api/meta` requests, so the data comes only after the first paint. Simulated mode loads the page at full speed and only then estimates the delays, so the late data never happens.
+3. Change or noise? Mostly noise: the simulated LCP ranges overlap (1,539–2,964 ms before, 2,166–2,642 ms after), and the last runs had a slower network for the same file (document 228–563 ms vs 118 ms; the 112 KB JS 0.33–0.92 s vs 0.13 s). Only CLS moved in the same direction in every run, and 3 runs are not enough to trust the median.
+4. What's left (the 0.021 font shift): `font-display: optional` (no shift; a first-time visitor might see the fallback font) or a fallback font adjusted with `size-adjust` / `ascent-override` (no shift; the font needs some tuning).
+
 ### RUM pilot (facts)
 
 `evidence/05-performance/rum-summary.json`, saved 2026-11-18 21:36:22 UTC by `rum-summary.ps1 -Since 2026-11-18T21:20:00Z`. The window opens after `c1dc15c` went live (21:06 UTC), so every page view in it saw the final version. Earlier page views (testing while building) are excluded by `since`. Lab traffic never reaches the collector: `web/src/lib/rum.ts` sends nothing from Lighthouse, headless Chrome, WebDriver-driven browsers or the desktop-app browser pane the AI assistant used (`isAutomated`, tested in `web/test/rum.test.ts`).
@@ -201,6 +232,13 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 - Budget check: LCP, INP and CLS p75 are within budget in every cohort that reported them.
 
 **Interpretation ✍️:** how much does a p75 of 3–4 samples tell you? What does the missing iPhone CLS mean for a festival audience that is mostly on phones? Why might the phone report TTFB once and LCP so low (hint: how does web-vitals treat a page restored from the back/forward cache)? Include the sentence: *we have no CrUX data because the origin is below Chrome's reporting threshold.*
+
+**My interpretation:**
+
+- A p75 of 3–4 samples is about the third value. It reflects my own visits on one network on 2026-11-18, not users. One slow load can influence it significantly.
+- iPhone: no CLS value whatsoever, since all iOS browsers use WebKit, which does not support the Layout Instability API. Since a festival audience is mostly on phones, layout shift on iPhones is not monitored by RUM. Only lab tests and data from Android devices cover it.
+- TTFB from 1 out of 4 phone views and an LCP of 153 ms: most probably pages restored from the back/forward cache, where web-vitals measures from the restore, not from a network load. I have not checked how web-vitals reports TTFB for a restored page.
+- We have no CrUX data because the origin is below Chrome's reporting threshold.
 
 ### k6 (facts)
 
@@ -220,6 +258,12 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 - Data received: 76,310,535 bytes, about 363 KB per journey, roughly the size of the **uncompressed** JS (353,431 bytes). k6 does not ask for compression unless the script sets `Accept-Encoding`, so each asset request downloaded the identity body; a browser receives about 111 KB (Task 6).
 
 **Interpretation ✍️:** which requests do you think made up the 97 misses (look at each content class's edge TTL in the cache-policy matrix)? What does REVALIDATED mean for origin load? Is a 3-minute run at 10 users on a free origin evidence of capacity, or only of this cache policy? Say plainly that the target was your production.
+
+**My interpretation:**
+
+- 97 misses: edge TTLs expire within the 184 s test. `/api/now` (2 s) alone may account for up to ~90 misses (one expiry every 2 seconds); the 10 s lists and the 30 s HTML shell add several; hashed assets miss once per data center. This is an estimate from the TTLs in the matrix, not a per-URL count.
+- REVALIDATED (44): the edge had an expired copy, asked Render for the page with an `If-None-Match` header and got a 304 answer. This saves some bandwidth, but Express generates the response body to calculate the ETag anyway, so the database query still happens; only `/api/status` is spared, by its app cache.
+- Capacity? No: 10 users for 3 minutes with 92% served by Cloudflare means Render saw fewer than 1 request a second. This proves the caching strategy, but not the capacity of a free Render instance.
 
 ## Task 6 — Bundle size
 
@@ -279,6 +323,14 @@ Lighthouse 12.8.2, mobile preset, performance category only, run from my laptop 
 - The CSS file was byte-identical in both runs (17,097 bytes uncompressed), yet its compressed size changed: br 4,701 → 4,711, gzip 4,569 → 4,576. Cloudflare compresses at the edge, and the output for the same file differed between the two captures.
 
 **Rationale ✍️** (your words): why reduce rather than keep or defer? What did the public map expose, given that the repository was private at the time? What do you give up (readable stack traces from production)? Why is "keep" right for the bundle itself (55% of budget, mostly react-dom)?
+
+**My rationale:**
+
+- Why reduce, not keep or defer: the map was a 1.9 MB public file (`index-B90xKGRO.js.map`, `200`, cached at Cloudflare) which had the original TypeScript source along with comments. Removing it is as simple as setting `sourcemap: false`. Nothing is lost for visitors, as browsers download source maps only if DevTools is open.
+- What it exposed: the repository was private back then (until 2026-11-25), so the source map was the only public copy of the code, including route names, validation rules, and comments about the authentication process and caching mechanism.
+- The price I pay: no readable production stack traces anymore. If needed in future, `npm run build -w web -- --sourcemap hidden` makes a private map that the JS does not reference.
+- Why keep the bundle itself: it is 110,864 bytes with Brotli, which is 55% of the 200 KB budget; react-dom alone is 58.5% of it and my own code 13.6%. No cheap cuts to be found here.
+- The JS file kept its name after the change (Rollup hashes the file first and then adds the map comment), so both URLs were purged once, the single exception in my matrix.
 
 ## Task 7 — Accessibility
 
@@ -346,13 +398,13 @@ axe reported none of these. The before scan's only violation was `label-content-
 **1. *Clear filters* drops keyboard focus** (`9cd1ed3`)
 - Symptom: after *Clear filters*, focus disappears; the next Tab lands on "See rooms side by side", past every filter.
 - Mechanism: both *Clear filters* buttons are rendered only while a filter is set. Pressing one clears the filters, React removes the focused button, and the browser moves focus to `<body>`.
-- Who ✍️:
+- Who: keyboard-only users (users with motor impairments, power users) and screen-reader users. Focus moved to the page body, so the screen reader went silent about their location, and pressing Tab moved past every filter; they had to Shift+Tab to get back.
 - Fix: `clear()` moves focus to the Film title field. Test: `web/test/catalog.test.tsx` ("keeps keyboard focus when Clear filters removes itself").
 
 **2. A page change leaves focus and the tab title behind** (`9cd1ed3`)
 - Symptom: after opening a screening, focus stays on `<body>` (a screen reader gets no sign that the page changed), and the browser tab still says "ReelSchedule".
 - Mechanism: a client-side route change swaps the content without a page load, so the browser neither resets focus nor changes `document.title`.
-- Who ✍️:
+- Who: primarily screen-reader users (no announcement of the page change; the screen reader continued reading from where focus was); keyboard users had to start again from the beginning. With several tabs open, every tab was titled "ReelSchedule".
 - Fix: `PageFocus` waits for the new page's `h1`, sets the tab title from it ("The Quiet Harbor · ReelSchedule") and moves focus to it. Filter changes (query string only) leave focus alone. Test: `web/test/page-focus.test.tsx`.
 
 **3. The sign-in form** (`adcb658`)
@@ -365,7 +417,7 @@ axe reported none of these. The before scan's only violation was `label-content-
   - The button had `disabled={busy || token.length < 20}`. A disabled button is not focusable, so disabling the focused button moves focus to `<body>`.
   - The error `<p role="alert">` was announced once but was not referenced by the field.
   - `invalid_token` was mapped to the message written for expired sessions.
-- Who ✍️:
+- Who: festival programmers, the only users who sign in. A keyboard user could not reach the Sign in button and got no explanation; a screen-reader user could hear the error message once and could not find it again; "your sign-in has expired" misled everyone.
 - Fix:
   - The button is never disabled (`aria-disabled` while checking); a short token gets a message instead.
   - The field gets `aria-invalid` and `aria-describedby` → the error, and focus returns to it.
@@ -381,14 +433,9 @@ axe reported none of these. The before scan's only violation was `label-content-
 
 ### Not tested ✍️
 
-Name at least one dimension you did not test and why. Candidates:
-- a screen reader (NVDA): the names were checked in code and tests, not by listening;
-- 200% zoom / 320 px reflow;
-- Windows forced colors (High Contrast);
-- reduced motion;
-- touch-target size.
-
-Also not covered: the Schedule console (signed-in only). Production runs read-only (`"auth": "disabled"`), so it was neither scanned nor walked through on the live site.
+- Screen reader (NVDA): the names and the error message were verified in the code and tests, but not by listening. It could still be wrong in how NVDA announces the error message after focus returns to the field, and in how it reads the timeline blocks.
+- 200% zoom / 320 px reflow: not tested. The Rooms-by-day timeline is wide and the most likely place to need sideways scrolling.
+- The Schedule console (requires sign-in) was not tested either, since sign-in is turned off in production.
 
 ## Task 8 — Cross-user cache disclosure (loopback lab)
 
@@ -505,10 +552,14 @@ Facts from the test:
 - What would you check first if this came at 3 a.m.?
 - Should one bad window wake someone, or wait for a second?
 
+**My answers:**
+
+1. What the alert told me: both attempts got `503` from Render's "Service Suspended" page, Cloudflare passed it through (`BYPASS`), and `/healthz` was also down; so the problem was the Render service itself, not the database or Cloudflare. The e-mail only said "Run failed"; the reason was on the run page.
+2. Break to e-mail: around 2 minutes (service suspended at 17:04 UTC, run started manually at 17:05, e-mail at 17:06). Without the manual start, it would have depended on GitHub's schedule, which ran approximately every 11 hours.
+3. At 3 a.m.: open the run. `503` "Service Suspended" or a deploy failure → Render Events; a `52x` → the connection from Cloudflare to Render; `"db":"down"` → the database (the free database is available until 2026-12-04); `cf-mitigated` → a Cloudflare security setting.
+4. One bad window or two: one window already uses ~15% of the 28-day budget and is already two failures 30 seconds apart; waiting for the next run means losing another hour (or ~11 with GitHub's actual schedule). For a fictional festival, an e-mail on the first failure is appropriate; for a real festival, a page on the first failure.
+
 ## Challenged AI claim ✍️
 
-Pick one candidate (or your own), verify it yourself, and write it up in your own words.
-
-Candidate A, measured on 2026-11-18: the AI assistant added `<link rel="preload" href="/api/meta">` to `ed7f1e5` with the claim that starting the metadata request "while the JavaScript downloads" would help the page load. Lighthouse on production said otherwise: simulated median LCP went to 2913 ms (budget 2.5 s), with LCP 415–484 ms after FCP in every run. A with/without test showed the preload cost simulated LCP and saved nothing under real throttling, and the code shows why: the page already starts all its queries at once. Removed in `c1dc15c`. Evidence: the Lighthouse table above and `evidence/05-performance/after-with-preload-ed7f1e5/NOTES.md`.
-
-Candidate B: the AI-written README says the HTML shell is "revalidated every time (cheap 304 via ETag)". Through Cloudflare, the shell arrives **without an ETag** (observed 2026-11-17: `etag: null`, `content-encoding: zstd`), so a browser revalidation downloads the whole shell. Evidence to capture: `curl.exe -sSI https://reel.miniexhibit.app/` (no ETag) vs `curl.exe -sSI https://reelschedule-api-arpita.onrender.com/` (ETag present). Then say what you changed or accepted.
+- **Claim 1:** the AI claimed that preloading `/api/meta` would make the page faster (`ed7f1e5`). Lighthouse: simulated median LCP 2,913 ms, above budget, with LCP 415–484 ms after FCP in all 3 runs; the with/without test (`evidence/05-performance/after-with-preload-ed7f1e5/NOTES.md`). The preload was removed in `c1dc15c`.
+- **Claim 2:** the AI claimed that the error annotation would put the reason for the failure "in the e-mail" (commit `668f6e7`). `evidence/09-observability/alert-email.png` shows only "Annotations 3"; the reason is on the run page (`alert-run.txt`). The README was corrected.

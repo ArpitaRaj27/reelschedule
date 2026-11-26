@@ -6,6 +6,8 @@
 - Why is this not cache *poisoning*? Who chose the content that got stored, and was anything injected?
 - Why is it a real disclosure while it runs, and not a near-miss? Look at what Bob received in `repro.txt` section C.
 
+**My words:** not poisoning; nobody injected anything. The stored response was the correct answer to Alice's own request, handed to someone else because the cache key was the URL alone and the origin said `public`. It is a real disclosure, not a near-miss: in `repro.txt` section C, Bob sent his own cookie and received "Signed in as Alice Nguyen (S0198442)", `HIT`; and in `cleanup.txt` step 1 it kept happening even after the origin was fixed (`HIT`, `Age` 4).
+
 ## What would have to be true for this to happen accidentally in ReelSchedule
 
 Facts about the current configuration:
@@ -21,6 +23,8 @@ Facts about the current configuration:
 
 ✍️ **In your words:** which of these is the most likely way this happens to you, and what would the deploy look like that causes it? Is "a defensive cache key absorbed it" (lab section B) available to you on Cloudflare Free, and what would it cost?
 
+**My words:** the edge half is already true. Most likely is the HW7 cookie login: both checks only look for an `Authorization` header, so a cookie-only request gets `public, s-maxage=10` and Cloudflare caches `/api/me`. Second: copying `publicCache()` into a signed-in route. On Cloudflare Free I cannot put cookies or headers in the cache key (that is an Enterprise feature); the free equivalent is a Cache Rule that bypasses the cache when there is a session cookie or an `Authorization` header (I still need to check that the rule builder offers those fields).
+
 ## Blast radius
 
 Facts:
@@ -32,6 +36,8 @@ Facts:
 - **How long one leaked copy lives**, if the public headers were applied (`CDN-Cache-Control: max-age=10, stale-while-revalidate=20, stale-if-error=600`): 10 s fresh, up to 30 s while revalidating, and up to 10 minutes while the origin is failing. Each Cloudflare data center keeps its own copy.
 
 ✍️ **In your words:** who could see what, for how long, and how bad is that for a festival programmer? What changes if HW7 adds names or e-mail addresses to `/api/me`?
+
+**My words:** currently none (sign-in is off, so every request with credentials gets `401 no-store`). With sign-in on, another programmer's id, roles and scopes would be visible to the next person at that data center for 10 seconds (30 seconds while refreshing, 10 minutes if Render fails); writes stay safe; `/api/films/search` results would leak as well. Today that is more embarrassing than harmful; if HW7 adds names or e-mails, it becomes a privacy incident.
 
 ## The detection added (so it cannot happen silently)
 
@@ -52,6 +58,8 @@ Facts:
    - Each run sees one Cloudflare data center.
 
 ✍️ **In your words:** why does this detection catch the incident you reproduced? What would it miss (think HW7 cookies)? Would you page someone on it, or is an e-mail enough?
+
+**My words:** CI fails any signed-in GET route whose response is shareable, so the origin half cannot ship; the production guard fails on any stored response. It fired on the lab leak (exit 1) and passed after the cleanup. It misses cookie logins, anything between runs, other data centers, and skipped schedules (GitHub ran it 3 of 13 times; one false alarm on 2026-11-24). An e-mail is enough today; once real people sign in, it should page someone, and the first step is a purge.
 
 ## Cleanup, and proof (lab)
 
